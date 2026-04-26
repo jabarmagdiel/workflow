@@ -1,0 +1,64 @@
+<div class="chat-wrapper" [class.chat--open]="isOpen()">
+  
+  <!-- Floating Button -->
+  <button class="chat-fab" (click)="toggleChat()" [attr.aria-label]="isOpen() ? 'Cerrar chat' : 'Abrir chat'">
+    @if (isOpen()) {
+      <span class="chat-icon">✕</span>
+    } @else {
+      <span class="chat-icon">💬</span>
+      <span class="chat-pulse"></span>
+    }
+  </button>
+
+  <!-- Chat Window -->
+  <div class="chat-window" *ngIf="isOpen()">
+    
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <div class="chat-avatar">🤖</div>
+        <div>
+          <h3 class="chat-title">BPFlow AI</h3>
+          <p class="chat-status">
+            <span class="chat-status-dot"></span> Online
+          </p>
+        </div>
+      </div>
+      <button class="chat-close" (click)="toggleChat()">✕</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages" #scrollContainer>
+      @for (msg of messages(); track msg.timestamp) {
+        <div class="message-row" [class.message--user]="msg.sender === 'user'">
+          <div class="message-bubble" [innerHTML]="formatText(msg.text)"></div>
+          <div class="message-time">{{ msg.timestamp | date:'HH:mm' }}</div>
+        </div>
+      }
+      @if (isLoading()) {
+        <div class="message-row">
+          <div class="message-bubble loading-bubble">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-area">
+      <input 
+        type="text" 
+        [(ngModel)]="currentMessage" 
+        (keyup.enter)="sendMessage()"
+        placeholder="Escribe un mensaje..."
+        [disabled]="isLoading()"
+      />
+      <button (click)="sendMessage()" [disabled]="!currentMessage.trim() || isLoading()">
+        <span class="send-icon">➤</span>
+      </button>
+    </div>
+
+  </div>
+</div>

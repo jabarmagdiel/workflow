@@ -1,0 +1,123 @@
+<div class="h-full flex flex-col gap-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between flex-shrink-0">
+    <div>
+      <h2 class="text-3xl font-bold text-white flex items-center gap-3">
+        <span>🚨</span> Centro de Vigilancia
+      </h2>
+      <p class="text-slate-400 mt-1">Detección IA de anomalías y patrones de riesgo en procesos</p>
+    </div>
+    <div class="flex items-center gap-3 px-5 py-2.5 bg-red-950/40 border border-red-900/50 rounded-2xl">
+      <div class="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></div>
+      <span class="text-red-400 font-black text-xs tracking-widest">MONITOREO ACTIVO</span>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-4 gap-4 flex-shrink-0">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+      <p class="text-slate-400 text-xs font-bold uppercase mb-2">Alertas Abiertas</p>
+      <p class="text-3xl font-black text-white">{{ countByStatus('OPEN') }}</p>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+      <p class="text-slate-400 text-xs font-bold uppercase mb-2">En Revisión</p>
+      <p class="text-3xl font-black text-cyan-400">{{ countByStatus('UNDER_REVIEW') }}</p>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+      <p class="text-slate-400 text-xs font-bold uppercase mb-2">Críticas</p>
+      <p class="text-3xl font-black text-red-400">{{ countBySeverity('CRITICAL') }}</p>
+    </div>
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+      <p class="text-slate-400 text-xs font-bold uppercase mb-2">Resueltas</p>
+      <p class="text-3xl font-black text-emerald-400">{{ countByStatus('RESOLVED') }}</p>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="flex gap-2 flex-shrink-0">
+    @for (tab of statusTabs; track tab.key) {
+      <button (click)="activeFilter.set(tab.key)"
+        [class.bg-red-700]="activeFilter() === tab.key"
+        [class.text-white]="activeFilter() === tab.key"
+        class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-slate-800 border border-slate-700 text-slate-400 transition-all">
+        {{ tab.label }} ({{ tab.key === 'ALL' ? alerts().length : countByStatus(tab.key) }})
+      </button>
+    }
+  </div>
+
+  <!-- Alerts Feed -->
+  <div class="flex-1 overflow-y-auto space-y-4 pr-2">
+    @if (loading()) {
+      <div class="text-center py-16 text-slate-500 animate-pulse">Cargando alertas...</div>
+    }
+
+    @for (alert of filteredAlerts(); track alert.id) {
+      <div class="relative overflow-hidden bg-slate-900 border rounded-2xl p-6 transition-all hover:shadow-xl"
+           [class]="severityBorderClass(alert.severity)">
+        <!-- Risk Bar -->
+        <div class="absolute top-0 left-0 h-1 bg-gradient-to-r from-orange-500 to-red-600 shadow-[0_0_8px_theme(colors.red.500/50)]"
+             [style.width.%]="alert.riskScore * 100"></div>
+
+        <div class="flex items-start justify-between gap-6">
+          <div class="flex-1 space-y-2">
+            <div class="flex items-center gap-3">
+              <span [class]="severityBadge(alert.severity)" class="text-[9px] px-2 py-0.5 rounded font-black uppercase">
+                {{ alert.severity }}
+              </span>
+              <span class="text-slate-500 text-[10px] font-mono">{{ alert.alertType }}</span>
+              <span class="text-slate-600 text-[10px]">{{ alert.detectedAt | date:'dd/MM/yy HH:mm' }}</span>
+            </div>
+
+            <h3 class="text-white font-bold">{{ alert.description }}</h3>
+
+            <!-- Indicators -->
+            @if (alert.indicators && alert.indicators.length > 0) {
+              <div class="flex flex-wrap gap-2 mt-2">
+                @for (ind of alert.indicators; track ind) {
+                  <span class="text-[10px] px-2.5 py-1 bg-slate-800 text-slate-400 rounded-lg border border-slate-700">
+                    {{ ind }}
+                  </span>
+                }
+              </div>
+            }
+
+            <div class="flex items-center gap-4 text-xs text-slate-500 pt-1">
+              <span>📊 Riesgo: <strong class="text-white">{{ (alert.riskScore * 100).toFixed(0) }}%</strong></span>
+              <span>🔗 Instancia: <span class="font-mono text-slate-400">{{ alert.instanceId ? alert.instanceId.slice(-8) : '—' }}</span></span>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2 flex-shrink-0">
+            <span [class]="alertStatusClass(alert.status)" class="text-[9px] px-2.5 py-1 rounded-lg font-black uppercase text-center">
+              {{ alert.status }}
+            </span>
+            @if (alert.status === 'OPEN' || alert.status === 'UNDER_REVIEW') {
+              <div class="flex flex-col gap-2 mt-2">
+                <button (click)="updateAlertStatus(alert.id, 'UNDER_REVIEW')"
+                  class="px-3 py-1.5 text-xs font-bold bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all">
+                  🔍 Revisar
+                </button>
+                <button (click)="updateAlertStatus(alert.id, 'RESOLVED')"
+                  class="px-3 py-1.5 text-xs font-bold bg-emerald-800 hover:bg-emerald-700 text-white rounded-lg transition-all">
+                  ✓ Resolver
+                </button>
+                <button (click)="updateAlertStatus(alert.id, 'FALSE_POSITIVE')"
+                  class="px-3 py-1.5 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition-all">
+                  Falso Positivo
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    } @empty {
+      @if (!loading()) {
+        <div class="flex flex-col items-center justify-center h-60 border-2 border-dashed border-slate-800 rounded-2xl text-center">
+          <span class="text-5xl mb-4">🛡️</span>
+          <p class="text-white font-bold">Sin alertas activas</p>
+          <p class="text-slate-500 text-sm mt-1">El motor IA no ha detectado anomalías</p>
+        </div>
+      }
+    }
+  </div>
+</div>

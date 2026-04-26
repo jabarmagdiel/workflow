@@ -1,0 +1,90 @@
+<div class="flex h-screen bg-slate-950 text-slate-200 overflow-hidden">
+  <!-- Sidebar -->
+  <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
+    <div class="p-6">
+      <h1 class="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+        BPFlow AI
+      </h1>
+    </div>
+    
+    <nav class="flex-1 px-4 space-y-2">
+      <a routerLink="/dashboard" routerLinkActive="bg-slate-800 text-cyan-400"
+         class="flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-slate-800">
+         <span>📊</span> Dashboard
+      </a>
+      <a routerLink="/workflows" routerLinkActive="bg-slate-800 text-cyan-400"
+         class="flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-slate-800">
+         <span>📐</span> Diseñador
+      </a>
+      <a routerLink="/instances" routerLinkActive="bg-slate-800 text-cyan-400"
+         class="flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-slate-800">
+         <span>🔄</span> Instancias
+      </a>
+      <a routerLink="/tasks" routerLinkActive="bg-slate-800 text-cyan-400"
+         class="flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-slate-800">
+         <span>✅</span> Mis Tareas
+      </a>
+      @if(auth.hasRole('ADMIN') || auth.hasRole('MANAGER')) {
+        <a routerLink="/analytics" routerLinkActive="bg-slate-800 text-indigo-400"
+           class="flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-slate-800">
+           <span>🧠</span> Análisis de IA
+        </a>
+        <a routerLink="/fraud" routerLinkActive="bg-slate-800 text-red-400"
+           class="flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-slate-800">
+           <span>🚨</span> Fraude
+        </a>
+        <a routerLink="/bitacora" routerLinkActive="bg-slate-800 text-violet-400"
+           class="flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-slate-800">
+           <span>📋</span> Bitácora
+        </a>
+        <a routerLink="/health" routerLinkActive="bg-slate-800 text-emerald-400"
+           class="flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-slate-800">
+           <span>🛡️</span> Sistema
+        </a>
+      }
+      @if(auth.hasRole('ADMIN')) {
+        <a routerLink="/users" routerLinkActive="bg-slate-800 text-blue-400"
+           class="flex items-center gap-3 p-3 rounded-lg transition-all hover:bg-slate-800">
+           <span>👥</span> Usuarios
+        </a>
+      }
+    </nav>
+
+    <div class="p-4 border-t border-slate-800">
+      <button (click)="auth.logout()" class="w-full p-2 rounded bg-slate-800 hover:bg-slate-700">
+        Cerrar Sesión
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-1 flex flex-col relative overflow-hidden">
+    <header class="h-16 border-b border-slate-800 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md">
+      <div></div> <!-- Spacer -->
+      <div class="flex items-center gap-6">
+         <!-- Notification Bell -->
+         <div (click)="notifService.togglePanel()" class="relative cursor-pointer p-2 rounded-full hover:bg-slate-800 transition-colors">
+            <svg class="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+            <div *ngIf="notifService.unreadCount() > 0" class="absolute top-0 right-0 bg-rose-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full border-2 border-slate-900 shadow-sm animate-pulse">
+               {{ notifService.unreadCount() }}
+            </div>
+         </div>
+         <div class="flex items-center gap-3 border-l border-slate-700 pl-6">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex justify-center items-center font-bold text-white shadow">
+               {{ auth.currentUser()?.firstName?.[0] }}
+            </div>
+            <div class="flex flex-col">
+               <span class="text-sm font-semibold text-slate-200">{{ auth.currentUser()?.firstName }} {{ auth.currentUser()?.lastName }}</span>
+               <span class="text-[10px] text-slate-400 uppercase tracking-wider">{{ auth.currentUser()?.roles?.[0] }}</span>
+            </div>
+         </div>
+      </div>
+    </header>
+
+    <section class="flex-1 overflow-hidden">
+      <router-outlet></router-outlet>
+    </section>
+  </main>
+
+  <app-chatbot-widget />
+</div>

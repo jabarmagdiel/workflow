@@ -1,0 +1,88 @@
+<div class="p-6 h-full flex flex-col text-slate-200 overflow-y-auto custom-scrollbar">
+  
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div>
+      <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 flex items-center gap-3">
+        <svg class="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        AI Bottleneck Analysis
+      </h1>
+      <p class="text-slate-400 mt-1">Discover process delays and optimize workflow performance</p>
+    </div>
+    
+    <div class="relative w-full md:w-64">
+      <select (change)="onWorkflowChange($event)" [value]="selectedWorkflow()" 
+        class="w-full select-glass px-4 py-2.5 rounded-xl text-sm cursor-pointer shadow-lg">
+        <option *ngFor="let w of workflows()" [value]="w.id">{{ w.name }} ({{ w.version }})</option>
+      </select>
+      <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="loading()" class="flex-1 flex flex-col justify-center items-center py-20 opacity-80">
+    <div class="spinner mb-4"></div>
+    <div class="text-indigo-400 animate-pulse font-medium tracking-widest text-sm uppercase">Analyzing Nodes...</div>
+  </div>
+
+  <div *ngIf="error()" class="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl mb-6 flex items-center gap-3">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+    {{ error() }}
+  </div>
+
+  <div *ngIf="!loading() && !error() && aiResult()" class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    
+    <!-- AI Insights Panel -->
+    <div class="lg:col-span-1 flex flex-col gap-6">
+      
+      <!-- Recommendation Card -->
+      <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+        <div class="ai-glow"></div>
+        <div class="flex items-center gap-3 mb-4">
+          <div class="p-2 bg-purple-500/10 rounded-lg text-purple-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+          </div>
+          <h3 class="text-lg font-bold text-slate-200">AI Recommendation</h3>
+        </div>
+        <p class="text-slate-300 leading-relaxed text-sm">
+          {{ aiResult()?.recommendation }}
+        </p>
+      </div>
+
+      <!-- Bottleneck List -->
+      <div class="glass-panel rounded-2xl p-6 flex-1">
+        <h3 class="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          Detected Bottlenecks
+        </h3>
+        
+        <div class="space-y-4">
+          <div *ngFor="let b of aiResult()?.bottlenecks" class="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:bg-slate-700/40 transition-colors">
+            <div class="flex justify-between items-start mb-2">
+              <div class="font-semibold text-slate-200 truncate">{{ b.node }}</div>
+              <span class="impact-badge" [ngClass]="{
+                'impact-high': b.impact === 'High', 
+                'impact-medium': b.impact === 'Medium',
+                'impact-low': b.impact === 'Low'
+              }">{{ b.impact }}</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-slate-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              Avg Delay: <span class="text-slate-300 font-medium">{{ b.avg_delay_hours }} hrs</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Chart Panel -->
+    <div class="lg:col-span-2 glass-panel rounded-2xl p-6 flex flex-col">
+      <h3 class="text-lg font-bold text-slate-200 mb-6">Delay Distribution by Node (Hours)</h3>
+      <div class="flex-1 relative min-h-[300px]">
+        <canvas id="bottleneckChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>

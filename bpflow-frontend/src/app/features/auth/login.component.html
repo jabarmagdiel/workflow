@@ -1,0 +1,31 @@
+<div class="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+  <div class="w-full max-w-md bg-slate-900 rounded-2xl border border-slate-800 p-8 shadow-2xl">
+    <div class="text-center mb-8">
+      <h2 class="text-3xl font-bold text-white mb-2">BPFlow</h2>
+      <p class="text-slate-400">Accede al motor de workflow inteligente</p>
+    </div>
+
+    <form (submit)="onLogin()" class="space-y-6">
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Email</label>
+        <input [(ngModel)]="email" name="email" type="email" required
+          class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-slate-300 mb-2">Contraseña</label>
+        <input [(ngModel)]="password" name="password" type="password" required
+          class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none">
+      </div>
+
+      <button type="submit" [disabled]="loading"
+        class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 rounded-lg transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-50">
+        {{ loading ? 'Iniciando sesión...' : 'Entrar' }}
+      </button>
+    </form>
+
+    <div class="mt-6 text-center text-sm text-slate-500">
+       ¿Olvidaste tu contraseña? <a class="text-cyan-400 hover:underline cursor-pointer">Recuperar</a>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,183 @@
+<div class="p-6 h-full flex flex-col text-slate-200">
+  
+  <div class="flex justify-between items-center mb-8">
+    <div>
+      <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300">User Management</h1>
+      <p class="text-slate-400 mt-1">Manage system accounts, roles, and access.</p>
+    </div>
+    <button (click)="openCreateModal()" class="btn-primary px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+      Add User
+    </button>
+  </div>
+
+  <div *ngIf="loading()" class="flex justify-center items-center py-20">
+    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+  </div>
+
+  <div *ngIf="error()" class="bg-red-500/10 border border-red-500/30 text-red-400 p-4 rounded-xl mb-6 flex items-center gap-3">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+    {{ error() }}
+  </div>
+
+  <div *ngIf="!loading() && !error()" class="glass-panel rounded-2xl overflow-hidden flex-1 flex flex-col">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-slate-800/50 text-slate-300 text-sm tracking-wider border-b border-slate-700/50">
+            <th class="px-6 py-4 font-semibold">User</th>
+            <th class="px-6 py-4 font-semibold">Contact Info</th>
+            <th class="px-6 py-4 font-semibold">Department</th>
+            <th class="px-6 py-4 font-semibold">Roles</th>
+            <th class="px-6 py-4 font-semibold">Status</th>
+            <th class="px-6 py-4 font-semibold text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/30">
+          <tr *ngFor="let user of users()" class="table-row">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex justify-center items-center font-bold text-blue-400 border border-blue-500/30">
+                  {{ user.firstName[0] }}{{ user.lastName[0] }}
+                </div>
+                <div>
+                  <div class="font-medium text-slate-200">{{ user.firstName }} {{ user.lastName }}</div>
+                  <div class="text-xs text-slate-500 line-clamp-1">{{ user.position || 'No Title' }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <div class="text-slate-300 text-sm">{{ user.email }}</div>
+              <div class="text-slate-500 text-xs">{{ user.phone || 'No phone' }}</div>
+            </td>
+            <td class="px-6 py-4 text-sm text-slate-400">
+              {{ user.department || 'Unassigned' }}
+            </td>
+            <td class="px-6 py-4">
+              <div class="flex flex-wrap gap-1">
+                <span *ngFor="let role of user.roles" 
+                      class="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                  {{ role }}
+                </span>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <button (click)="toggleStatus(user)"
+                [class]="user.enabled ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'"
+                class="px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors hover:brightness-125">
+                <span class="w-1.5 h-1.5 rounded-full" [class]="user.enabled ? 'bg-emerald-400' : 'bg-rose-400'"></span>
+                {{ user.enabled ? 'Active' : 'Disabled' }}
+              </button>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <div class="flex justify-end gap-2">
+                <button (click)="openEditModal(user)" class="btn-icon p-2 text-slate-400 hover:text-blue-400 bg-slate-800/50 hover:bg-blue-500/10 rounded-lg">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                </button>
+                <button (click)="deleteUser(user)" class="btn-icon p-2 text-slate-400 hover:text-rose-400 bg-slate-800/50 hover:bg-rose-500/10 rounded-lg">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="users().length === 0">
+            <td colspan="6" class="px-6 py-8 text-center text-slate-500">No users found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Overlay -->
+<div *ngIf="isModalOpen()" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+  <div class="modal-content w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div class="px-6 py-4 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/50">
+      <h3 class="text-xl font-bold text-slate-200">
+        {{ modalMode() === 'CREATE' ? 'Add New User' : 'Edit User' }}
+      </h3>
+      <button (click)="closeModal()" class="text-slate-400 hover:text-white transition-colors">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+
+    <div class="p-6 overflow-y-auto custom-scrollbar flex-1">
+      <form [formGroup]="userForm" (ngSubmit)="saveUser()" class="space-y-5">
+        
+        <div class="bg-blue-500/5 border border-blue-500/10 rounded-xl p-4 mb-2">
+          <h4 class="text-sm font-semibold text-blue-400 mb-4 uppercase tracking-wider">Account Details</h4>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="col-span-2 md:col-span-1">
+              <label class="block text-xs text-slate-400 mb-1.5 ml-1">Email <span class="text-rose-500">*</span></label>
+              <input type="email" formControlName="email" [readonly]="modalMode() === 'EDIT'" [class.opacity-50]="modalMode() === 'EDIT'" 
+                class="w-full input-glass rounded-lg px-4 py-2 text-sm" placeholder="user@company.com">
+            </div>
+            <div class="col-span-2 md:col-span-1" *ngIf="modalMode() === 'CREATE'">
+              <label class="block text-xs text-slate-400 mb-1.5 ml-1">Password <span class="text-rose-500">*</span></label>
+              <input type="password" formControlName="password" 
+                class="w-full input-glass rounded-lg px-4 py-2 text-sm" placeholder="Min 6 characters">
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-indigo-500/5 border border-indigo-500/10 rounded-xl p-4 mb-2">
+          <h4 class="text-sm font-semibold text-indigo-400 mb-4 uppercase tracking-wider">Personal Info</h4>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1.5 ml-1">First Name <span class="text-rose-500">*</span></label>
+              <input type="text" formControlName="firstName" class="w-full input-glass rounded-lg px-4 py-2 text-sm" placeholder="John">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1.5 ml-1">Last Name <span class="text-rose-500">*</span></label>
+              <input type="text" formControlName="lastName" class="w-full input-glass rounded-lg px-4 py-2 text-sm" placeholder="Doe">
+            </div>
+            <div class="col-span-2 md:col-span-1">
+              <label class="block text-xs text-slate-400 mb-1.5 ml-1">Phone</label>
+              <input type="text" formControlName="phone" class="w-full input-glass rounded-lg px-4 py-2 text-sm" placeholder="+1 234 567 890">
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-purple-500/5 border border-purple-500/10 rounded-xl p-4">
+          <h4 class="text-sm font-semibold text-purple-400 mb-4 uppercase tracking-wider">Organization</h4>
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1.5 ml-1">Department</label>
+              <input type="text" formControlName="department" class="w-full input-glass rounded-lg px-4 py-2 text-sm" placeholder="IT, Sales, HR...">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1.5 ml-1">Position / Title</label>
+              <input type="text" formControlName="position" class="w-full input-glass rounded-lg px-4 py-2 text-sm" placeholder="Software Engineer">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-2 ml-1">Assigned Roles <span class="text-rose-500">*</span></label>
+            <div class="flex flex-wrap gap-2">
+              <div *ngFor="let role of availableRoles" 
+                   (click)="toggleRoleSelection(role)"
+                   class="role-badge px-4 py-2 rounded-lg text-sm border border-slate-700 bg-slate-800/50 text-slate-300 flex items-center gap-2"
+                   [class.selected]="isRoleSelected(role)">
+                <div class="w-4 h-4 rounded-full border border-current flex items-center justify-center">
+                  <div *ngIf="isRoleSelected(role)" class="w-2 h-2 rounded-full bg-current"></div>
+                </div>
+                {{ role }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </form>
+    </div>
+
+    <div class="px-6 py-4 border-t border-slate-700/50 bg-slate-800/90 flex justify-end gap-3 rounded-b-2xl">
+      <button type="button" (click)="closeModal()" class="px-5 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">
+        Cancel
+      </button>
+      <button type="button" (click)="saveUser()" [disabled]="userForm.invalid" 
+        class="btn-primary px-6 py-2 rounded-lg font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+        {{ modalMode() === 'CREATE' ? 'Create User' : 'Save Changes' }}
+      </button>
+    </div>
+  </div>
+</div>

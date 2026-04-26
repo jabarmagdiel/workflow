@@ -1,0 +1,80 @@
+{
+    "version": 1,
+    "newProjectRoot": "projects",
+    "projects": {
+        "bpflow-frontend": {
+            "projectType": "application",
+            "schematics": {
+                "@schematics/angular:component": {
+                    "standalone": true
+                }
+            },
+            "root": "",
+            "sourceRoot": "src",
+            "prefix": "app",
+            "architect": {
+                "build": {
+                    "builder": "@angular-devkit/build-angular:browser",
+                    "options": {
+                        "outputPath": "dist/bpflow-frontend",
+                        "index": "src/index.html",
+                        "main": "src/main.ts",
+                        "polyfills": [
+                            "zone.js"
+                        ],
+                        "tsConfig": "tsconfig.app.json",
+                        "assets": [
+                            "src/favicon.ico",
+                            "src/assets"
+                        ],
+                        "styles": [
+                            "src/styles.css"
+                        ],
+                        "scripts": []
+                    },
+                    "configurations": {
+                        "production": {
+                            "budgets": [
+                                {
+                                    "type": "initial",
+                                    "maximumWarning": "500kb",
+                                    "maximumError": "1mb"
+                                },
+                                {
+                                    "type": "anyComponentStyle",
+                                    "maximumWarning": "8kb",
+                                    "maximumError": "16kb"
+                                }
+                            ],
+                            "outputHashing": "all"
+                        },
+                        "development": {
+                            "buildOptimizer": false,
+                            "optimization": false,
+                            "vendorChunk": true,
+                            "extractLicenses": false,
+                            "sourceMap": true,
+                            "namedChunks": true
+                        }
+                    },
+                    "defaultConfiguration": "production"
+                },
+                "serve": {
+                    "builder": "@angular-devkit/build-angular:dev-server",
+                    "configurations": {
+                        "production": {
+                            "buildTarget": "bpflow-frontend:build:production"
+                        },
+                        "development": {
+                            "buildTarget": "bpflow-frontend:build:development"
+                        }
+                    },
+                    "defaultConfiguration": "development"
+                }
+            }
+        }
+    },
+    "cli": {
+      "analytics": "6714f6b9-7630-4be4-b4bc-7f90de906c02"
+    }
+}

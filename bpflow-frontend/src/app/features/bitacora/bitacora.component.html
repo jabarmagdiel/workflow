@@ -1,0 +1,299 @@
+<div class="bita-root">
+
+  <!-- ══════ HEADER ══════════════════════════════════════════════ -->
+  <div class="bita-header">
+    <div>
+      <h2 class="bita-title">Bitácora & Backup</h2>
+      <p class="bita-sub">Trazabilidad de eventos y gestión de respaldo del sistema</p>
+    </div>
+    <div class="bita-tabs">
+      <button [class.tab--active]="activeTab() === 'logs'"   (click)="activeTab.set('logs')">
+        📋 Bitácora
+      </button>
+      <button [class.tab--active]="activeTab() === 'backup'" (click)="activeTab.set('backup')">
+        💾 Backup
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════ STATS ROW ═══════════════════════════════════════════ -->
+  @if (stats()) {
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-icon">📋</span>
+        <div>
+          <p class="stat-val">{{ stats()!.total | number }}</p>
+          <p class="stat-lbl">Eventos totales</p>
+        </div>
+      </div>
+      <div class="stat-card stat-card--green">
+        <span class="stat-icon">✅</span>
+        <div>
+          <p class="stat-val">{{ stats()!.success | number }}</p>
+          <p class="stat-lbl">Exitosos</p>
+        </div>
+      </div>
+      <div class="stat-card stat-card--red">
+        <span class="stat-icon">❌</span>
+        <div>
+          <p class="stat-val">{{ stats()!.failures | number }}</p>
+          <p class="stat-lbl">Fallidos</p>
+        </div>
+      </div>
+      <div class="stat-card stat-card--blue">
+        <span class="stat-icon">🎯</span>
+        <div>
+          <p class="stat-val">
+            {{ stats()!.total > 0 ? ((stats()!.success / stats()!.total) * 100 | number:'1.0-0') : 0 }}%
+          </p>
+          <p class="stat-lbl">Tasa de éxito</p>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ══════ LOGS TAB ═════════════════════════════════════════════ -->
+  @if (activeTab() === 'logs') {
+
+    <div class="bita-body">
+
+      <!-- Left: filters + chart -->
+      <aside class="bita-side">
+
+        <!-- Filters -->
+        <div class="filter-box">
+          <p class="filter-title">🔍 Filtros</p>
+
+          <div class="filter-group">
+            <label>Acción</label>
+            <select [(ngModel)]="filterAction" (ngModelChange)="filterAction.set($event)">
+              <option value="">— Todas —</option>
+              @for (a of ACTION_OPTIONS; track a) { <option [value]="a">{{ a }}</option> }
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label>Recurso</label>
+            <select [(ngModel)]="filterType" (ngModelChange)="filterType.set($event)">
+              <option value="">— Todos —</option>
+              @for (t of TYPE_OPTIONS; track t) { <option [value]="t">{{ t }}</option> }
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label>Usuario ID</label>
+            <input [(ngModel)]="filterUserId" (ngModelChange)="filterUserId.set($event)"
+                   placeholder="ID del usuario"/>
+          </div>
+
+          <div class="filter-group">
+            <label>Desde</label>
+            <input type="datetime-local" [(ngModel)]="filterFrom" (ngModelChange)="filterFrom.set($event)"/>
+          </div>
+
+          <div class="filter-group">
+            <label>Hasta</label>
+            <input type="datetime-local" [(ngModel)]="filterTo" (ngModelChange)="filterTo.set($event)"/>
+          </div>
+
+          <div class="filter-actions">
+            <button class="btn-apply" (click)="applyFilters()">Aplicar</button>
+            <button class="btn-clear" (click)="clearFilters()">Limpiar</button>
+          </div>
+        </div>
+
+        <!-- Activity chart by action -->
+        @if (stats()) {
+          <div class="chart-box">
+            <p class="filter-title">📊 Por Acción</p>
+            @for (item of statsEntries(stats()!.byAction); track item.key) {
+              <div class="bar-row">
+                <span class="bar-lbl">{{ item.key.replace('_', ' ') }}</span>
+                <div class="bar-track">
+                  <div class="bar-fill"
+                       [style.width]="barWidth(item.val, maxVal(stats()!.byAction))">
+                  </div>
+                </div>
+                <span class="bar-num">{{ item.val }}</span>
+              </div>
+            }
+          </div>
+        }
+      </aside>
+
+      <!-- Right: log table -->
+      <div class="log-area">
+        <div class="log-topbar">
+          <span class="log-count">{{ totalItems() | number }} eventos</span>
+          <button class="btn-refresh" (click)="loadLogs()">↺ Actualizar</button>
+        </div>
+
+        @if (loading()) {
+          <div class="loading-rows">
+            @for (i of [1,2,3,4,5,6,7,8]; track i) {
+              <div class="skel-row"></div>
+            }
+          </div>
+        } @else {
+          <div class="log-table-wrap">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Acción</th>
+                  <th>Recurso</th>
+                  <th>Usuario</th>
+                  <th>IP</th>
+                  <th>Detalle</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (log of logs(); track log.id) {
+                  <tr [class.row--fail]="!log.success">
+                    <td class="td-ts">{{ log.timestamp | date:'dd/MM/yy HH:mm:ss' }}</td>
+                    <td>
+                      <span [class]="'badge ' + actionClass(log.action)">
+                        {{ actionIcon(log.action) }} {{ log.action }}
+                      </span>
+                    </td>
+                    <td class="td-res">
+                      <span class="res-type">{{ log.resourceType }}</span>
+                      @if (log.resourceId) {
+                        <span class="res-id" [title]="log.resourceId">
+                          {{ log.resourceId.slice(0, 8) }}…
+                        </span>
+                      }
+                    </td>
+                    <td class="td-user">{{ log.userEmail || log.userId || '—' }}</td>
+                    <td class="td-ip">{{ log.ipAddress }}</td>
+                    <td class="td-detail" [title]="log.detail">{{ log.detail }}</td>
+                    <td>
+                      <span [class]="log.success ? 'dot dot--ok' : 'dot dot--err'">
+                        {{ log.success ? '✓' : '✕' }}
+                      </span>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="7" class="td-empty">
+                      <p class="text-4xl mb-2">📭</p>
+                      <p>Sin eventos con esos filtros</p>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          @if (totalPages() > 1) {
+            <div class="pagination">
+              <button (click)="gotoPage(0)"           [disabled]="page() === 0">«</button>
+              <button (click)="gotoPage(page() - 1)"  [disabled]="page() === 0">‹</button>
+              @for (p of pagesArray(); track p) {
+                <button (click)="gotoPage(p)" [class.pg--active]="p === page()">{{ p + 1 }}</button>
+              }
+              <button (click)="gotoPage(page() + 1)"         [disabled]="page() >= totalPages()-1">›</button>
+              <button (click)="gotoPage(totalPages() - 1)"   [disabled]="page() >= totalPages()-1">»</button>
+              <span class="pg-info">Pág. {{ page()+1 }} / {{ totalPages() }}</span>
+            </div>
+          }
+        }
+      </div>
+    </div>
+
+  }
+
+  <!-- ══════ BACKUP TAB ═══════════════════════════════════════════ -->
+  @if (activeTab() === 'backup') {
+    <div class="backup-body">
+
+      <!-- Summary cards -->
+      @if (backupStats()) {
+        <div class="bk-stats">
+          <div class="bk-card">
+            <span class="bk-icon">📐</span>
+            <p class="bk-num">{{ backupStats()!.workflows }}</p>
+            <p class="bk-lbl">Workflows</p>
+          </div>
+          <div class="bk-card">
+            <span class="bk-icon">🔄</span>
+            <p class="bk-num">{{ backupStats()!.instances }}</p>
+            <p class="bk-lbl">Instancias</p>
+          </div>
+          <div class="bk-card">
+            <span class="bk-icon">✅</span>
+            <p class="bk-num">{{ backupStats()!.tasks }}</p>
+            <p class="bk-lbl">Tareas</p>
+          </div>
+          <div class="bk-card">
+            <span class="bk-icon">📋</span>
+            <p class="bk-num">{{ backupStats()!.auditLogs }}</p>
+            <p class="bk-lbl">Eventos</p>
+          </div>
+        </div>
+      }
+
+      <!-- Actions -->
+      <div class="bk-actions">
+
+        <!-- Export -->
+        <div class="bk-action-card">
+          <div class="bkac-icon export-icon">📤</div>
+          <h3 class="bkac-title">Exportar Backup</h3>
+          <p class="bkac-desc">
+            Descarga un archivo <strong>.json</strong> con todos los workflows, instancias,
+            tareas y eventos de auditoría del sistema. Úsalo para respaldo o migración.
+          </p>
+          <ul class="bkac-list">
+            <li>✓ Incluye workflows (DRAFT y PUBLISHED)</li>
+            <li>✓ Instancias y su historial completo</li>
+            <li>✓ Todas las tareas</li>
+            <li>✓ Eventos de bitácora</li>
+          </ul>
+          <button class="bkac-btn btn-export"
+                  [disabled]="exporting()"
+                  (click)="exportBackup()">
+            {{ exporting() ? '⏳ Generando...' : '⬇ Descargar Backup Ahora' }}
+          </button>
+        </div>
+
+        <!-- Import -->
+        <div class="bk-action-card">
+          <div class="bkac-icon import-icon">📥</div>
+          <h3 class="bkac-title">Restaurar Backup</h3>
+          <p class="bkac-desc">
+            Sube un archivo de backup generado por BPFlow para restaurar datos.
+            Solo se importan las entidades que <strong>no existan</strong> en el sistema actual
+            (sin sobrescribir).
+          </p>
+          <ul class="bkac-list">
+            <li>⚠ Solo acepta archivos .json de BPFlow</li>
+            <li>⚠ No sobreescribe registros existentes</li>
+            <li>⚠ Requiere rol ADMIN</li>
+          </ul>
+          <input id="backup-file-input" type="file" accept=".json" hidden
+                 (change)="onFileSelected($event)"/>
+          <button class="bkac-btn btn-import"
+                  [disabled]="importing()"
+                  (click)="triggerImport()">
+            {{ importing() ? '⏳ Restaurando...' : '⬆ Seleccionar Archivo .json' }}
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Info banner -->
+      <div class="bk-info">
+        <span class="info-icon">💡</span>
+        <p>
+          Se recomienda programar backups periódicos en entornos de producción.
+          El archivo exportado es portable y puede importarse en cualquier instancia de BPFlow.
+        </p>
+      </div>
+
+    </div>
+  }
+
+</div>

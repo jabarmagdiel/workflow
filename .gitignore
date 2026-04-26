@@ -1,0 +1,38 @@
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Node.js / Frontend
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+
+# Java / Spring Boot
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/
+.gradle/
+build/
+
+# Python / AI
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
+# Logs and OS files
+*.log
+Thumbs.db
+Desktop.ini

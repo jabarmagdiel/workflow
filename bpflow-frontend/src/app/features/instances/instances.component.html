@@ -1,0 +1,288 @@
+<div class="instances-page">
+  <!-- ══ HEADER ════════════════════════════════════════════════════ -->
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Instancias de Proceso</h2>
+      <p class="page-sub">Gestiona y sigue las ejecuciones activas del flujo <strong>f1-proces</strong></p>
+    </div>
+    <button class="btn-primary" (click)="openStartModal()">
+      <span>▶</span> Iniciar Proceso
+    </button>
+  </div>
+
+  <!-- ══ TABS ══════════════════════════════════════════════════════ -->
+  <div class="tabs">
+    <button [class.active]="activeTab() === 'instances'" (click)="activeTab.set('instances')">
+      Instancias ({{ instances().length }})
+    </button>
+    <button [class.active]="activeTab() === 'tasks'" (click)="activeTab.set('tasks')">
+      Mis Tareas ({{ pendingTasks().length }})
+    </button>
+  </div>
+
+  <!-- ══ INSTANCES TAB ═════════════════════════════════════════════ -->
+  @if (activeTab() === 'instances') {
+    @if (loading()) {
+      <div class="loading">Cargando instancias...</div>
+    } @else if (instances().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon">🔄</div>
+        <p class="empty-title">Sin instancias activas</p>
+        <p class="empty-sub">Inicia el proceso f1-proces para comenzar</p>
+        <button class="btn-primary" (click)="openStartModal()">▶ Iniciar ahora</button>
+      </div>
+    } @else {
+      <div class="inst-grid">
+        @for (inst of instances(); track inst.id) {
+          <div class="inst-card" [class.sla-breached]="inst.slaBreached" (click)="viewDetail(inst)">
+            <div class="inst-card-top">
+              <div>
+                <p class="inst-ref">{{ inst.referenceNumber }}</p>
+                <p class="inst-name">{{ inst.workflowName }} <span class="version">v{{ inst.workflowVersion }}</span></p>
+              </div>
+              <div class="badges">
+                <span class="badge" [class]="statusClass(inst.status)">{{ inst.status }}</span>
+                <span class="badge" [class]="priorityClass(inst.priority)">{{ inst.priority }}</span>
+              </div>
+            </div>
+
+            <div class="current-node" *ngIf="inst.status === 'RUNNING'">
+              <span class="node-pulse"></span>
+              <span>{{ currentNodeLabel(inst) }}</span>
+            </div>
+
+            <div class="inst-meta">
+              <span>📋 {{ inst.history.length }} pasos</span>
+              <span>📅 {{ formatDate(inst.startedAt) }}</span>
+              @if (inst.slaBreached) {
+                <span class="sla-warn">⚠ SLA</span>
+              }
+              @if (inst.riskScore > 0.5) {
+                <span class="risk-warn">🔴 Riesgo {{ (inst.riskScore * 100).toFixed(0) }}%</span>
+              }
+            </div>
+            
+            <div class="inst-actions-row">
+              <button class="btn-pdf-sm" (click)="downloadAuditPdf(inst); $event.stopPropagation()">
+                📄 Reporte
+              </button>
+              @if (inst.status === 'RUNNING') {
+                <button class="btn-cancel-sm" (click)="cancelInstance(inst.id); $event.stopPropagation()">
+                  ✕ Cancelar
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+
+  <!-- ══ TASKS TAB ═════════════════════════════════════════════════ -->
+  @if (activeTab() === 'tasks') {
+    @if (tasks().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <p class="empty-title">Sin tareas pendientes</p>
+        <p class="empty-sub">Todas las tareas están al día</p>
+      </div>
+    } @else {
+      <div class="task-list">
+        @for (task of tasks(); track task.id) {
+          <div class="task-row">
+            <div class="task-info">
+              <div class="task-name">{{ task.nodeName }}</div>
+              <div class="task-wf">{{ task.workflowName }}</div>
+              <div class="task-meta">
+                <span>👤 {{ task.assignedRole || 'Sin rol' }}</span>
+                @if (task.dueAt) { <span>⏰ vence {{ formatDate(task.dueAt) }}</span> }
+              </div>
+            </div>
+            <div class="task-right">
+              <span class="badge" [class]="taskStatusClass(task.status)">{{ task.status }}</span>
+              @if (task.status === 'NEW' || task.status === 'IN_PROGRESS') {
+                <button class="btn-action" (click)="openTaskModal(task)">Gestionar →</button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: START INSTANCE
+════════════════════════════════════════════════════════════════ -->
+@if (showStartModal()) {
+  <div class="modal-backdrop" (click)="showStartModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3 class="modal-title">▶ Iniciar Proceso</h3>
+
+      <div class="form-group">
+        <label>Proceso *</label>
+        <select [(ngModel)]="startForm.workflowId">
+          <option value="">— Selecciona proceso —</option>
+          @for (wf of workflows(); track wf.id) {
+            <option [value]="wf.id">{{ wf.name }} (v{{ wf.version }})</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>ID de Cliente / Referencia</label>
+        <input [(ngModel)]="startForm.clientId" placeholder="Ej: CLI-001" />
+      </div>
+
+      <div class="form-group">
+        <label>Prioridad</label>
+        <select [(ngModel)]="startForm.priority">
+          @for (p of PRIORITIES; track p) {
+            <option [value]="p">{{ p }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Notas iniciales</label>
+        <textarea [(ngModel)]="startForm.notes" rows="3" placeholder="Observaciones de inicio..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showStartModal.set(false)">Cancelar</button>
+        <button class="btn-primary" (click)="startInstance()"
+                [disabled]="!startForm.workflowId || submitting()">
+          {{ submitting() ? 'Iniciando...' : '▶ Iniciar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: TASK ACTION (Approve / Reject)
+════════════════════════════════════════════════════════════════ -->
+@if (showTaskModal() && selectedTask()) {
+  <div class="modal-backdrop" (click)="showTaskModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3 class="modal-title">Gestionar Tarea</h3>
+      <p class="modal-sub">{{ selectedTask()!.nodeName }}</p>
+      <p class="modal-sub dim">{{ selectedTask()!.workflowName }}</p>
+
+      <div class="action-selector">
+        <button [class.sel]="taskForm.action === 'APPROVE'"
+                (click)="taskForm.action = 'APPROVE'" class="btn-action-choice approve">
+          ✅ Aprobar
+        </button>
+        <button [class.sel]="taskForm.action === 'REJECT'"
+                (click)="taskForm.action = 'REJECT'" class="btn-action-choice reject">
+          ❌ Rechazar
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label>Comentario {{ taskForm.action === 'REJECT' ? '*' : '' }}</label>
+        <textarea [(ngModel)]="taskForm.comment" rows="3"
+                  [placeholder]="taskForm.action === 'APPROVE' ? 'Comentarios opcionales...' : 'Motivo del rechazo...'">
+        </textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showTaskModal.set(false)">Cancelar</button>
+        <button class="btn-primary"
+                [class.btn-danger]="taskForm.action === 'REJECT'"
+                (click)="completeTask()"
+                [disabled]="(taskForm.action === 'REJECT' && !taskForm.comment) || submitting()">
+          {{ submitting() ? 'Guardando...' : taskForm.action === 'APPROVE' ? '✅ Confirmar Aprobación' : '❌ Confirmar Rechazo' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: INSTANCE DETAIL
+════════════════════════════════════════════════════════════════ -->
+@if (showDetailModal() && selectedInst()) {
+  <div class="modal-backdrop" (click)="showDetailModal.set(false)">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="detail-header">
+        <div>
+          <h3 class="modal-title">{{ selectedInst()!.referenceNumber }}</h3>
+          <p class="modal-sub">
+            {{ selectedInst()!.workflowName }} v{{ selectedInst()!.workflowVersion }}
+            &nbsp;·&nbsp;
+            <span class="badge" [class]="statusClass(selectedInst()!.status)">{{ selectedInst()!.status }}</span>
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn-pdf" (click)="downloadAuditPdf(selectedInst()!)">📄 Descargar Reporte PDF</button>
+          <button class="btn-refresh" (click)="refreshDetail()">↺ Actualizar</button>
+        </div>
+      </div>
+
+      <!-- Current step -->
+      @if (selectedInst()!.status === 'RUNNING') {
+        <div class="current-step-banner">
+          <span class="node-pulse"></span>
+          Paso actual: <strong>{{ currentNodeLabel(selectedInst()!) }}</strong>
+        </div>
+      }
+
+      <!-- Pending tasks for this instance -->
+      @if (instTasks().length > 0) {
+        <div class="pending-tasks-section">
+          <p class="section-label">Tareas pendientes</p>
+          @for (t of instTasks(); track t.id) {
+            @if (t.status === 'NEW' || t.status === 'IN_PROGRESS') {
+              <div class="task-row compact">
+                <div class="task-info">
+                  <div class="task-name">{{ t.nodeName }}</div>
+                  <span class="badge" [class]="taskStatusClass(t.status)">{{ t.status }}</span>
+                </div>
+                <button class="btn-action" (click)="openTaskModal(t); showDetailModal.set(false)">
+                  Gestionar →
+                </button>
+              </div>
+            }
+          }
+        </div>
+      }
+
+      <!-- History timeline -->
+      <p class="section-label">Historial de ejecución</p>
+      <div class="timeline">
+        @for (step of selectedInst()!.history; track $index; let last = $last) {
+          <div class="tl-item" [class.tl-last]="last">
+            <div class="tl-dot" [class.dot-approved]="step.action === 'APPROVE'"
+                 [class.dot-rejected]="step.action === 'REJECT'"
+                 [class.dot-cancelled]="step.action === 'CANCELLED'">
+            </div>
+            <div class="tl-content">
+              <div class="tl-node">{{ step.nodeName }}</div>
+              <div class="tl-action">
+                <span class="action-badge" [class]="'action-' + step.action?.toLowerCase()">
+                  {{ step.action }}
+                </span>
+                @if (step.comment) { <span class="tl-comment">— {{ step.comment }}</span> }
+              </div>
+              <div class="tl-meta">{{ formatDate(step.timestamp) }}</div>
+            </div>
+          </div>
+        }
+        @if (selectedInst()!.history.length === 0) {
+          <p class="dim">Sin historial aún</p>
+        }
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showDetailModal.set(false)">Cerrar</button>
+        @if (selectedInst()!.status === 'RUNNING') {
+          <button class="btn-danger" (click)="cancelInstance(selectedInst()!.id); showDetailModal.set(false)">
+            ✕ Cancelar Instancia
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}

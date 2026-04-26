@@ -1,0 +1,508 @@
+<div class="wd-root">
+
+  <!-- ══════════════════ WORKFLOW LIST SIDEBAR ════════════════ -->
+  <aside class="wd-sidebar">
+    <div class="wd-sidebar-header">
+      <div>
+        <h2 class="text-lg font-black text-white">Diseñador</h2>
+        <p class="text-xs text-slate-500 mt-0.5">{{ workflows().length }} procesos</p>
+      </div>
+      <button (click)="openCreateModal()"
+              class="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition-all">
+        + Nuevo
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-2 space-y-1.5">
+      @if (loading()) {
+        <div class="text-center py-10 text-slate-500 text-sm animate-pulse">Cargando...</div>
+      }
+      @for (wf of workflows(); track wf.id) {
+        <div (click)="selectWorkflow(wf)"
+             [ngClass]="selectedWf()?.id === wf.id
+               ? 'border-cyan-600 bg-cyan-950/20 shadow-md shadow-cyan-900/20'
+               : 'border-slate-800 hover:border-slate-600'"
+             class="p-3 border rounded-xl cursor-pointer transition-all">
+          <div class="flex justify-between items-start gap-2">
+            <h3 class="font-bold text-white text-sm leading-tight flex-1 truncate">{{ wf.name }}</h3>
+            <span [class]="statusClass(wf.status)"
+                  class="text-[9px] px-1.5 py-0.5 rounded font-black uppercase flex-shrink-0">
+              {{ wf.status }}
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1 leading-tight line-clamp-2">{{ wf.description }}</p>
+          <div class="flex gap-3 mt-2 text-[10px] text-slate-600">
+            <span>⬡ {{ wf.nodes?.length || 0 }}</span>
+            <span>→ {{ wf.edges?.length || 0 }}</span>
+            <span>v{{ wf.version }}</span>
+          </div>
+        </div>
+      } @empty {
+        <div class="text-center py-14 text-slate-600">
+          <p class="text-4xl mb-2">📐</p>
+          <p class="text-sm">Sin procesos</p>
+        </div>
+      }
+    </div>
+  </aside>
+
+  <!-- ══════════════════ BPMN ELEMENT PALETTE ═════════════════ -->
+  @if (selectedWf() && selectedWf()!.status === 'DRAFT') {
+    <div class="wd-palette">
+      <p class="palette-title">Elementos</p>
+
+      @for (item of palette; track item.type) {
+        <div class="palette-item"
+             [title]="item.label"
+             (mousedown)="onPaletteDragStart(item, $event)">
+
+          <!-- SVG mini-preview of each shape -->
+          <svg width="42" height="42" viewBox="-24 -24 48 48">
+            @switch (item.icon) {
+              @case ('start') {
+                <circle r="16" fill="#021a10" stroke="#10b981" stroke-width="2"/>
+                <circle r="9" fill="#10b981"/>
+                <text y="1" text-anchor="middle" dominant-baseline="central"
+                      font-size="9" fill="white">▶</text>
+              }
+              @case ('end') {
+                <circle r="16" fill="#0f172a" stroke="#64748b" stroke-width="3"/>
+                <circle r="10" fill="#64748b"/>
+              }
+              @case ('task') {
+                <rect x="-20" y="-13" width="40" height="26" rx="5"
+                      fill="#0b1628" stroke="#0891b2" stroke-width="1.5"/>
+                <line x1="-20" y1="-7" x2="-17" y2="7" stroke="#0891b2" stroke-width="2.5" stroke-linecap="round"/>
+                <text y="1" text-anchor="middle" dominant-baseline="central"
+                      font-size="8" fill="#e2e8f0" font-weight="600">TAREA</text>
+              }
+              @case ('decision') {
+                <polygon points="0,-18 22,0 0,18 -22,0"
+                         fill="#100e00" stroke="#d97706" stroke-width="1.5"/>
+                <line x1="-7" y1="-7" x2="7" y2="7" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+                <line x1="7" y1="-7" x2="-7" y2="7" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+              }
+              @case ('parallel') {
+                <polygon points="0,-18 22,0 0,18 -22,0"
+                         fill="#100e00" stroke="#d97706" stroke-width="1.5"/>
+                <line x1="0" y1="-9" x2="0" y2="9" stroke="#d97706" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="-9" y1="0" x2="9" y2="0" stroke="#d97706" stroke-width="2.5" stroke-linecap="round"/>
+              }
+              @case ('join') {
+                <polygon points="0,-18 22,0 0,18 -22,0"
+                         fill="#100e00" stroke="#7c3aed" stroke-width="1.5"/>
+                <text y="1" text-anchor="middle" dominant-baseline="central"
+                      font-size="14" fill="#7c3aed">×</text>
+              }
+              @case ('sub') {
+                <rect x="-20" y="-13" width="40" height="26" rx="5"
+                      fill="#0b1628" stroke="#6366f1" stroke-width="1.5"/>
+                <rect x="-8" y="5" width="16" height="10" rx="2"
+                      fill="none" stroke="#6366f1" stroke-width="1"/>
+                <line x1="0" y1="6" x2="0" y2="14" stroke="#6366f1" stroke-width="1"/>
+                <line x1="-4" y1="10" x2="4" y2="10" stroke="#6366f1" stroke-width="1"/>
+              }
+            }
+          </svg>
+
+          <span class="palette-label">{{ item.label }}</span>
+        </div>
+      }
+
+      <div class="palette-sep"></div>
+
+      <!-- Edge drawing toggle -->
+      <div class="palette-item"
+           [class.palette-item--active]="edgeDrawing()"
+           title="Conectar nodos"
+           (click)="toggleEdgeDrawing()">
+        <svg width="42" height="42" viewBox="-24 -24 48 48">
+          <line x1="-14" y1="10" x2="14" y2="-10"
+                [attr.stroke]="edgeDrawing() ? '#22d3ee' : '#475569'"
+                stroke-width="2.5" stroke-linecap="round"/>
+          <polygon points="14,-10 7,-14 10,-6" [attr.fill]="edgeDrawing() ? '#22d3ee' : '#475569'"/>
+        </svg>
+        <span class="palette-label" [style.color]="edgeDrawing() ? '#22d3ee' : undefined">Conexión</span>
+      </div>
+    </div>
+  }
+
+  <!-- ══════════════════ CANVAS ════════════════════════════════ -->
+  <div class="wd-canvas"
+       (mousedown)="onBgMousedown($event)"
+       (mousemove)="onCanvasMousemove($event)"
+       (mouseup)="onCanvasMouseup($event)"
+       (mouseleave)="onCanvasMouseup($event)"
+       (wheel)="onWheel($event)"
+       [style.cursor]="edgeDrawing() ? 'crosshair' : draggingPalette ? 'grabbing' : isPanning ? 'grabbing' : 'grab'">
+
+    @if (selectedWf()) {
+
+      <!-- SVG Canvas -->
+      <svg class="wd-svg" (click)="clearSelection()">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 7" refX="9" refY="3.5"
+                  markerWidth="7" markerHeight="5" orient="auto">
+            <path d="M0,0 L10,3.5 L0,7 Z" fill="#3d5a80"/>
+          </marker>
+          <marker id="arr-preview" viewBox="0 0 10 7" refX="9" refY="3.5"
+                  markerWidth="7" markerHeight="5" orient="auto">
+            <path d="M0,0 L10,3.5 L0,7 Z" fill="#22d3ee"/>
+          </marker>
+          <pattern id="dotgrid" [attr.x]="gridX" [attr.y]="gridY"
+                   width="30" height="30" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1.5" fill="#192744"/>
+          </pattern>
+        </defs>
+
+        <rect width="100%" height="100%" fill="#080d1a"/>
+        <rect width="100%" height="100%" fill="url(#dotgrid)"/>
+
+        <g [attr.transform]="svgTransform">
+
+          <!-- ──── Drop preview ghost ──── -->
+          @if (draggingPalette && dropPreview) {
+            <g [attr.transform]="'translate(' + dropPreview.x + ',' + dropPreview.y + ')'">
+              @switch (draggingPalette.type) {
+                @case ('START') { <circle r="30" fill="#021a10" stroke="#10b981" stroke-width="2" opacity="0.55"/> }
+                @case ('END')   { <circle r="30" fill="#0f172a" stroke="#64748b" stroke-width="3" opacity="0.55"/> }
+                @case ('DECISION') {
+                  <polygon points="0,-48 56,0 0,48 -56,0"
+                           fill="#100e00" stroke="#d97706" stroke-width="1.8" opacity="0.55"/>
+                }
+                @default {
+                  <rect x="-72" y="-33" width="144" height="66" rx="10"
+                        fill="#0b1628" stroke="#0891b2" stroke-width="1.5" opacity="0.55"
+                        stroke-dasharray="6,3"/>
+                  <text y="1" text-anchor="middle" dominant-baseline="central"
+                        font-size="11" fill="#e2e8f0" opacity="0.7">{{ draggingPalette.label }}</text>
+                }
+              }
+            </g>
+          }
+
+          <!-- ──── Edge preview line ──── -->
+          @if (edgeDrawing() && edgeSrcNode && edgePreviewEnd) {
+            <path [attr.d]="edgePreviewPath"
+                  fill="none" stroke="#22d3ee" stroke-width="1.5"
+                  stroke-dasharray="8,4" marker-end="url(#arr-preview)" opacity="0.7"/>
+          }
+
+          <!-- ──── EDGES ──── -->
+          @for (edge of selectedWf()!.edges; track edge.id) {
+            <g>
+              <path [attr.d]="edgePath(edge)"
+                    fill="none" stroke="#253a5c" stroke-width="2"
+                    marker-end="url(#arr)"/>
+              <!-- Invisible wider hit area for delete -->
+              @if (selectedWf()!.status === 'DRAFT') {
+                <path [attr.d]="edgePath(edge)"
+                      fill="none" stroke="transparent" stroke-width="12"
+                      style="cursor:pointer"
+                      (dblclick)="deleteEdge(edge.id); $event.stopPropagation()"/>
+              }
+              @if (edgeMid(edge); as mid) {
+                <rect [attr.x]="mid.x - 27" [attr.y]="mid.y - 10"
+                      width="54" height="18" rx="5"
+                      fill="#0a1628" stroke="#1e3a5f" stroke-width="0.8"/>
+                <text [attr.x]="mid.x" [attr.y]="mid.y + 1"
+                      text-anchor="middle" dominant-baseline="central"
+                      font-size="9.5" fill="#93c5fd"
+                      font-family="Inter,system-ui,sans-serif" font-weight="600">
+                  {{ edge.label }}
+                </text>
+              }
+            </g>
+          }
+
+          <!-- ──── NODES ──── -->
+          @for (node of selectedWf()!.nodes; track node.id) {
+            <g [attr.transform]="'translate(' + node.x + ',' + node.y + ')'"
+               [style.cursor]="edgeDrawing() ? 'crosshair' : 'move'"
+               (mousedown)="onNodeMousedown(node, $event)"
+               (dblclick)="openNodeEdit(node); $event.stopPropagation()">
+
+              @switch (node.type) {
+                @case ('START') {
+                  <circle r="30" fill="#021a10" [attr.stroke]="nodeStroke(node)" stroke-width="2.5"/>
+                  <circle r="20" [attr.fill]="nodeColor(node)"/>
+                  <text y="1" text-anchor="middle" dominant-baseline="central"
+                        font-size="14" fill="white">▶</text>
+                  <text y="47" text-anchor="middle" font-size="10" fill="#64748b"
+                        font-family="Inter,system-ui,sans-serif" font-weight="600">{{ node.label }}</text>
+                }
+                @case ('END') {
+                  <circle r="30" fill="#0f172a" [attr.stroke]="nodeStroke(node)" stroke-width="3.5"/>
+                  <circle r="21" [attr.fill]="nodeColor(node)"/>
+                  <text y="47" text-anchor="middle" font-size="10" fill="#64748b"
+                        font-family="Inter,system-ui,sans-serif" font-weight="600">{{ node.label }}</text>
+                }
+                @case ('DECISION') {
+                  <polygon points="0,-48 56,0 0,48 -56,0"
+                           fill="#100e00" [attr.stroke]="nodeStroke(node)" stroke-width="1.8"/>
+                  <line x1="-15" y1="-15" x2="15" y2="15"
+                        [attr.stroke]="nodeColor(node)" stroke-width="3" stroke-linecap="round"/>
+                  <line x1="15" y1="-15" x2="-15" y2="15"
+                        [attr.stroke]="nodeColor(node)" stroke-width="3" stroke-linecap="round"/>
+                  <text y="66" text-anchor="middle" font-size="9.5" fill="#64748b"
+                        font-family="Inter,system-ui,sans-serif" font-weight="600">{{ node.label }}</text>
+                }
+                @case ('PARALLEL_GATEWAY') {
+                  <polygon points="0,-48 56,0 0,48 -56,0"
+                           fill="#100e00" [attr.stroke]="nodeStroke(node)" stroke-width="1.8"/>
+                  <line x1="0" y1="-18" x2="0" y2="18"
+                        [attr.stroke]="nodeColor(node)" stroke-width="3.5" stroke-linecap="round"/>
+                  <line x1="-18" y1="0" x2="18" y2="0"
+                        [attr.stroke]="nodeColor(node)" stroke-width="3.5" stroke-linecap="round"/>
+                  <text y="66" text-anchor="middle" font-size="9.5" fill="#64748b">{{ node.label }}</text>
+                }
+                @case ('JOIN_GATEWAY') {
+                  <polygon points="0,-48 56,0 0,48 -56,0"
+                           fill="#100e00" [attr.stroke]="nodeStroke(node)" stroke-width="1.8"/>
+                  <text y="1" text-anchor="middle" dominant-baseline="central"
+                        font-size="26" [attr.fill]="nodeColor(node)">×</text>
+                  <text y="66" text-anchor="middle" font-size="9.5" fill="#64748b">{{ node.label }}</text>
+                }
+                @default {
+                  <rect x="-72" y="-33" width="144" height="66" rx="10"
+                        fill="#000" opacity="0.3" transform="translate(2,3)"/>
+                  <rect x="-72" y="-33" width="144" height="66" rx="10"
+                        fill="#0b1628" [attr.stroke]="nodeStroke(node)" stroke-width="1.5"/>
+                  <rect x="-72" y="-23" width="5" height="46" rx="2.5"
+                        [attr.fill]="nodeColor(node)"/>
+                  <rect x="48" y="-33" width="24" height="21" rx="5"
+                        [attr.fill]="nodeColor(node)" opacity="0.2"/>
+                  <text x="60" y="-21" text-anchor="middle" dominant-baseline="central"
+                        font-size="11" [attr.fill]="nodeColor(node)">👤</text>
+                  @for (line of splitLabel(node.label); track $index) {
+                    <text [attr.x]="0" [attr.y]="labelY($index, splitLabel(node.label).length)"
+                          text-anchor="middle" dominant-baseline="central"
+                          font-size="11" fill="#e2e8f0"
+                          font-family="Inter,system-ui,sans-serif" font-weight="600">
+                      {{ line }}
+                    </text>
+                  }
+                  @if (node.assignedRole) {
+                    <text x="0" y="26" text-anchor="middle" font-size="8.5" fill="#3d5a80"
+                          font-family="Inter,system-ui,sans-serif">{{ node.assignedRole }}</text>
+                  }
+                }
+              }
+
+              <!-- Selection halo -->
+              @if (selectedNode()?.id === node.id) {
+                @switch (node.type) {
+                  @case ('DECISION') {
+                    <polygon points="0,-59 66,0 0,59 -66,0"
+                             fill="none" stroke="#fff" stroke-width="1.5"
+                             stroke-dasharray="5,3" opacity="0.55"/>
+                  }
+                  @case ('PARALLEL_GATEWAY') {
+                    <polygon points="0,-59 66,0 0,59 -66,0"
+                             fill="none" stroke="#fff" stroke-width="1.5"
+                             stroke-dasharray="5,3" opacity="0.55"/>
+                  }
+                  @case ('START') {
+                    <circle r="38" fill="none" stroke="#fff" stroke-width="1.5"
+                            stroke-dasharray="5,3" opacity="0.55"/>
+                  }
+                  @case ('END') {
+                    <circle r="38" fill="none" stroke="#fff" stroke-width="1.5"
+                            stroke-dasharray="5,3" opacity="0.55"/>
+                  }
+                  @default {
+                    <rect x="-82" y="-42" width="164" height="84" rx="12"
+                          fill="none" stroke="#fff" stroke-width="1.5"
+                          stroke-dasharray="5,3" opacity="0.55"/>
+                  }
+                }
+              }
+
+              <!-- Edge drawing "source" indicator -->
+              @if (edgeDrawing() && edgeSrcNode?.id === node.id) {
+                <circle r="8" cx="0" cy="0" fill="#22d3ee" opacity="0.8">
+                  <animate attributeName="r" values="6;12;6" dur="1s" repeatCount="indefinite"/>
+                  <animate attributeName="opacity" values="0.8;0.2;0.8" dur="1s" repeatCount="indefinite"/>
+                </circle>
+              }
+
+            </g>
+          }
+        </g>
+      </svg>
+
+      <!-- ──── FLOATING TOOLBAR ──── -->
+      <div class="canvas-tb" (click)="$event.stopPropagation()">
+        <div class="tb-group">
+          <button class="tb-btn" (click)="zoomOut()" title="Alejar">−</button>
+          <span class="tb-zoom">{{ zoomPct }}%</span>
+          <button class="tb-btn" (click)="zoomIn()" title="Acercar">+</button>
+          <div class="tb-sep"></div>
+          <button class="tb-btn" (click)="fitView()" title="Ajustar">⊡</button>
+          <button class="tb-btn" (click)="zoomReset()" title="Resetear">↺</button>
+        </div>
+
+        <!-- Voice button (designer only) -->
+        <div class="tb-group">
+          <button class="tb-btn tb-voice"
+                  [class.tb-voice--on]="voiceListening()"
+                  (click)="toggleVoice()"
+                  title="Comando de voz">
+            🎤 {{ voiceListening() ? 'Escuchando...' : 'Voz' }}
+          </button>
+        </div>
+
+        @if (selectedWf()!.status === 'DRAFT') {
+          <div class="tb-group">
+            <button class="tb-btn tb-pub" (click)="publishWorkflow(selectedWf()!.id)"
+                    [disabled]="publishing()">
+              {{ publishing() ? '...' : '🚀 Publicar' }}
+            </button>
+          </div>
+        }
+        @if (selectedWf()!.status === 'PUBLISHED') {
+          <div class="tb-group">
+            <span class="tb-badge-pub">✅ PUBLICADO</span>
+          </div>
+        }
+        <div class="tb-group tb-info">
+          <span class="tb-wf-name">{{ selectedWf()!.name }}</span>
+          <span class="tb-wf-ver">v{{ selectedWf()!.version }}</span>
+        </div>
+      </div>
+
+      <!-- ──── VOICE OVERLAY ──── -->
+      @if (voiceListening()) {
+        <div class="voice-overlay" (click)="stopVoice()">
+          <div class="voice-ring"></div>
+          <div class="voice-content">
+            <span class="voice-icon">🎤</span>
+            <p class="voice-hint">Di un comando…</p>
+            @if (voiceText()) {
+              <p class="voice-transcript">{{ voiceText() }}</p>
+            }
+            <p class="voice-examples">
+              "Agregar tarea Revisión" · "Agregar inicio" · "Publicar" · "Ajustar vista"
+            </p>
+          </div>
+        </div>
+      }
+
+      <!-- ──── NODE EDIT PANEL ──── -->
+      @if (showNodeEdit() && editingNode.id) {
+        <div class="nd-panel" (click)="$event.stopPropagation()">
+          <div class="nd-header">
+            <span class="nd-type-badge"
+                  [style.background]="nodeColor(selectedNode()!) + '22'"
+                  [style.color]="nodeColor(selectedNode()!)">
+              {{ editingNode.type }}
+            </span>
+            <button class="nd-close" (click)="showNodeEdit.set(false)">✕</button>
+          </div>
+
+          <div class="modal-fields" style="gap:10px">
+            <div class="mf-group">
+              <label>Nombre del nodo</label>
+              <input [(ngModel)]="editingNode.label" placeholder="Etiqueta visible"/>
+            </div>
+            <div class="mf-group">
+              <label>Rol asignado</label>
+              <select [(ngModel)]="editingNode.assignedRole">
+                <option value="">— Sin asignar —</option>
+                @for (r of roles; track r) { <option [value]="r">{{ r }}</option> }
+              </select>
+            </div>
+            <div class="mf-group">
+              <label>SLA (horas)</label>
+              <input [(ngModel)]="editingNode.slaHours" type="number" min="0"/>
+            </div>
+            <div class="mf-checks">
+              <label><input type="checkbox" [(ngModel)]="editingNode.startNode"/> Nodo inicio</label>
+              <label><input type="checkbox" [(ngModel)]="editingNode.endNode"/> Nodo fin</label>
+            </div>
+          </div>
+
+          <div class="nd-actions">
+            <button class="nd-del"
+                    (click)="deleteNode(selectedWf()!.id, editingNode.id!)">
+              🗑
+            </button>
+            <button class="nd-save" (click)="saveNodeEdit()">
+              💾 Guardar
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- ──── DRAG HINT ──── -->
+      @if (addingNode()) {
+        <div class="canvas-hint">
+          <span class="hint-dot"></span> Añadiendo nodo…
+        </div>
+      }
+      @if (edgeDrawing()) {
+        <div class="canvas-hint canvas-hint--edge">
+          @if (!edgeSrcNode) {
+            🖱 Haz clic en el nodo <strong>origen</strong>
+          } @else {
+            ⇢ Ahora haz clic en el nodo <strong>destino</strong>
+          }
+        </div>
+      }
+
+    } @else {
+      <!-- ─── Empty canvas ─── -->
+      <svg class="wd-svg">
+        <defs>
+          <pattern id="dotgrid-e" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1.5" fill="#192744"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="#080d1a"/>
+        <rect width="100%" height="100%" fill="url(#dotgrid-e)"/>
+      </svg>
+      <div class="canvas-empty">
+        <div class="ce-icon">📐</div>
+        <p class="ce-title">Selecciona un proceso</p>
+        <p class="ce-sub">o crea uno nuevo para empezar</p>
+        <button class="ce-btn" (click)="openCreateModal()">+ Nuevo Proceso</button>
+      </div>
+    }
+  </div><!-- /wd-canvas -->
+
+</div><!-- /wd-root -->
+
+
+<!-- ════ MODALS ════════════════════════════════════════════════ -->
+
+@if (showCreateModal()) {
+  <div class="modal-bd" (click)="showCreateModal.set(false)">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <h3 class="modal-title">Nueva Plantilla de Proceso</h3>
+      <div class="modal-fields">
+        <div class="mf-group">
+          <label>Nombre *</label>
+          <input [(ngModel)]="newWf.name" placeholder="Ej: Aprobación de Crédito" id="wf-name"/>
+        </div>
+        <div class="mf-group">
+          <label>Descripción</label>
+          <textarea [(ngModel)]="newWf.description" rows="2" placeholder="Objetivo del proceso…"></textarea>
+        </div>
+        <div class="mf-group">
+          <label>Categoría</label>
+          <input [(ngModel)]="newWf.category" placeholder="Finanzas, RRHH, Legal…"/>
+        </div>
+        <div class="mf-group">
+          <label>SLA por defecto (h)</label>
+          <input [(ngModel)]="newWf.defaultSlaHours" type="number" min="1"/>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="ma-cancel" (click)="showCreateModal.set(false)">Cancelar</button>
+        <button class="ma-confirm" (click)="createWorkflow()" [disabled]="!newWf.name || creating()">
+          {{ creating() ? 'Creando...' : 'Crear Proceso' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

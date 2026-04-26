@@ -1,0 +1,96 @@
+version: '3.9'
+
+services:
+  # ─── DATABASE ─────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7.0
+    container_name: bpflow-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: bpflow
+      MONGO_INITDB_ROOT_PASSWORD: bpflow_secret_2024
+      MONGO_INITDB_DATABASE: bpflow_db
+    volumes:
+      - mongo_data:/data/db
+      - ./bpflow-backend/src/main/resources/mongo-init.js:/docker-entrypoint-initdb.d/init.js
+    ports:
+      - "27017:27017"
+    networks:
+      - bpflow-network
+
+  # ─── SPRING BOOT BACKEND ──────────────────────────────────────
+  backend:
+    build:
+      context: ./bpflow-backend
+      dockerfile: Dockerfile
+    container_name: bpflow-backend
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://bpflow:bpflow_secret_2024@mongodb:27017/bpflow_db?authSource=admin
+      SPRING_DATA_MONGODB_DATABASE: bpflow_db
+      JWT_SECRET: BPFlow_JWT_Super_Secret_Key_2024_Change_In_Prod_256bits
+      JWT_EXPIRATION_MS: 86400000
+      JWT_REFRESH_EXPIRATION_MS: 604800000
+      AI_SERVICE_URL: http://ai-service:8000
+      CORS_ALLOWED_ORIGINS: http://localhost:4200,http://frontend:4200
+    ports:
+      - "8080:8080"
+    networks:
+      - bpflow-network
+
+  # ─── FASTAPI AI MICROSERVICE ──────────────────────────────────
+  ai-service:
+    build:
+      context: ./bpflow-ai
+      dockerfile: Dockerfile
+    container_name: bpflow-ai
+    restart: unless-stopped
+    depends_on:
+      - mongodb
+    environment:
+      MONGODB_URI: mongodb://bpflow:bpflow_secret_2024@mongodb:27017/bpflow_db?authSource=admin
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ENV: production
+    ports:
+      - "8000:8000"
+    networks:
+      - bpflow-network
+
+  # ─── ANGULAR FRONTEND ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./bpflow-frontend
+      dockerfile: Dockerfile
+    container_name: bpflow-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "4200:80"
+    networks:
+      - bpflow-network
+
+  # ─── NGINX GATEWAY ────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: bpflow-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - ai-service
+      - frontend
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    networks:
+      - bpflow-network
+
+volumes:
+  mongo_data:
+
+networks:
+  bpflow-network:
+    driver: bridge
