@@ -7,8 +7,6 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -48,7 +46,6 @@ public class AuditLogController {
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
 
-        PageRequest pr = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp"));
 
         // Use findAll and filter in memory (simple implementation)
         List<AuditLog> all = auditLogRepo.findAll(Sort.by(Sort.Direction.DESC, "timestamp"));

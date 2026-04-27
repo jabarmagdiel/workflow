@@ -59,6 +59,8 @@ public class User {
     private int failedLoginAttempts;
     private LocalDateTime lockedUntil;
 
+    private String fcmToken;
+
     @CreatedDate
     private LocalDateTime createdAt;
 

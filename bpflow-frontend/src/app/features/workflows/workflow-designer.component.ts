@@ -2,6 +2,8 @@ import { Component, inject, signal, OnInit, OnDestroy, HostListener, NgZone } fr
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { VoiceService, VoiceCommand } from '../../core/services/voice.service';
+import { Subscription } from 'rxjs';
 
 /* ─── Interfaces ───────────────────────────────────────────── */
 interface WorkflowEdge {
@@ -38,7 +40,6 @@ interface Workflow {
   defaultSlaHours?: number;
 }
 
-/* ─── Palette element definition ───────────────────────────── */
 export interface PaletteItem {
   type: WorkflowNode['type'];
   label: string;
@@ -46,7 +47,6 @@ export interface PaletteItem {
   role?: string;
 }
 
-/* ─── Canvas geometry constants ────────────────────────────── */
 const NW = 140, NH = 60;
 const DR = 46;
 const CR = 26;
@@ -61,6 +61,9 @@ const CR = 26;
 export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   private http   = inject(HttpClient);
   private zone   = inject(NgZone);
+  public voiceService = inject(VoiceService);
+
+  private voiceSub: Subscription | null = null;
 
   /* ── Data signals ─────────────────────────────────── */
   workflows    = signal<Workflow[]>([]);
@@ -93,10 +96,9 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   edgeSrcNode: WorkflowNode | null = null;
   edgePreviewEnd: { x: number; y: number } | null = null;
 
-  /* ── Voice ────────────────────────────────────────── */
-  voiceListening = signal(false);
-  voiceText      = signal('');
-  private recognition: any = null;
+  /* ── Voice (ahora vinculados al servicio) ──────────────── */
+  voiceListening = this.voiceService.isListening;
+  voiceText      = this.voiceService.lastTranscript;
 
   /* ── Modal flags ──────────────────────────────────── */
   showCreateModal  = signal(false);
@@ -120,8 +122,56 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     { type: 'SUBPROCESS',       label: 'Sub-Proceso',  icon: 'sub'      },
   ];
 
-  ngOnInit() { this.loadWorkflows(); }
-  ngOnDestroy() { this.stopVoice(); }
+  ngOnInit() { 
+    this.loadWorkflows(); 
+    this.voiceSub = this.voiceService.commandBus$.subscribe(command => {
+      this.zone.run(() => this.handleAICommand(command));
+    });
+  }
+
+  ngOnDestroy() { 
+    this.voiceSub?.unsubscribe();
+    this.voiceService.stopListening(); 
+  }
+
+  /* ─── Voice Handling ────────────────────────────────── */
+  toggleVoice() {
+    this.voiceListening() ? this.voiceService.stopListening() : this.voiceService.startListening();
+  }
+
+  stopVoice() {
+    this.voiceService.stopListening();
+  }
+
+  private handleAICommand(command: VoiceCommand) {
+    const wf = this.selectedWf();
+    if (!wf || wf.status !== 'DRAFT') return;
+
+    console.log('💎 Designer executing AI command:', command.intent);
+
+    switch (command.intent) {
+      case 'CREATE_NODE': {
+        const label = this.capitalize(command.entities?.node_name || 'Nueva Tarea');
+        const xs = wf.nodes.map(n => n.x);
+        const x = xs.length ? Math.max(...xs) + 220 : 300;
+        const y = wf.nodes[Math.floor(wf.nodes.length / 2)]?.y ?? 300;
+        this.dropNodeAt({ type: 'TASK', label, icon: 'task' }, x, y);
+        break;
+      }
+      case 'DELETE_ELEMENT': {
+        // Implementación simple: si hay un nodo seleccionado, lo borra
+        const selected = this.selectedNode();
+        if (selected) this.deleteNode(wf.id, selected.id);
+        break;
+      }
+      case 'CONNECT_NODES': {
+        // Implementar lógica de conexión por nombre si fuera necesario
+        break;
+      }
+    }
+  }
+
+  private capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
   /* ─── Data ──────────────────────────────────────────── */
   loadWorkflows() {
@@ -140,7 +190,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     setTimeout(() => this.fitView(), 0);
   }
 
-  /* ─── SVG transform string ──────────────────────────── */
   get svgTransform(): string {
     return `translate(${this.tx()},${this.ty()}) scale(${this.scale()})`;
   }
@@ -149,7 +198,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   get gridY() { return this.ty() % 30; }
   get zoomPct() { return (this.scale() * 100).toFixed(0); }
 
-  /* ─── Pan ───────────────────────────────────────────── */
   onBgMousedown(e: MouseEvent) {
     if (e.button !== 0) return;
     if (this.draggingPalette) return;
@@ -161,28 +209,23 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   }
 
   onCanvasMousemove(e: MouseEvent) {
-    // Palette drag preview
     if (this.draggingPalette) {
       const pos = this.svgPoint(e);
       this.dropPreview = pos;
       return;
     }
-    // Node drag on canvas
     if (this.draggingNode) {
       const dx = (e.clientX - this.nodeDragStart.mx) / this.scale();
       const dy = (e.clientY - this.nodeDragStart.my) / this.scale();
       this.draggingNode.x = this.snap(this.nodeDragStart.nx + dx);
       this.draggingNode.y = this.snap(this.nodeDragStart.ny + dy);
-      // Force change detection by updating the signal reference
       this.selectedWf.update(wf => wf ? { ...wf, nodes: [...wf.nodes] } : wf);
       return;
     }
-    // Edge preview
     if (this.edgeDrawing() && this.edgeSrcNode) {
       this.edgePreviewEnd = this.svgPoint(e);
       return;
     }
-    // Pan
     if (this.isPanning) {
       this.tx.set(this.panStart.tx + (e.clientX - this.panStart.x));
       this.ty.set(this.panStart.ty + (e.clientY - this.panStart.y));
@@ -190,27 +233,22 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   }
 
   onCanvasMouseup(e: MouseEvent) {
-    // Drop palette item
     if (this.draggingPalette && this.dropPreview) {
       const item = this.draggingPalette;
       this.dropNodeAt(item, this.dropPreview.x, this.dropPreview.y);
     }
     this.draggingPalette = null;
     this.dropPreview = null;
-
-    // Finish node drag → persist position
     if (this.draggingNode) {
       this.persistNodePosition(this.draggingNode);
       this.draggingNode = null;
     }
-
     this.isPanning = false;
     this.edgePreviewEnd = null;
   }
 
   private snap(v: number, grid = 20) { return Math.round(v / grid) * grid; }
 
-  /* Convert screen coords → canvas SVG coords */
   private svgPoint(e: MouseEvent) {
     const el = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const mx = e.clientX - el.left;
@@ -221,7 +259,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     };
   }
 
-  /* ─── Palette drag start ────────────────────────────── */
   onPaletteDragStart(item: PaletteItem, e: MouseEvent) {
     e.preventDefault();
     this.draggingPalette = item;
@@ -229,7 +266,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     this.isPanning = false;
   }
 
-  /* ─── Drop node ─────────────────────────────────────── */
   dropNodeAt(item: PaletteItem, x: number, y: number) {
     const wf = this.selectedWf();
     if (!wf || wf.status !== 'DRAFT') return;
@@ -248,7 +284,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
         this.selectedWf.set(u);
         this.workflows.update(l => l.map(w => w.id === u.id ? u : w));
         this.addingNode.set(false);
-        // Open quick-edit for the new node
         const newNode = u.nodes[u.nodes.length - 1];
         if (newNode) { this.openNodeEdit(newNode); }
       },
@@ -256,7 +291,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     });
   }
 
-  /* ─── Move node on canvas ───────────────────────────── */
   onNodeMousedown(node: WorkflowNode, e: MouseEvent) {
     if (this.edgeDrawing()) {
       this.handleEdgeClick(node, e);
@@ -272,7 +306,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   private persistNodePosition(node: WorkflowNode) {
     const wf = this.selectedWf();
     if (!wf) return;
-    // PATCH position (fire-and-forget style, server will respond with full workflow)
     this.http.patch<Workflow>(`/api/workflows/${wf.id}/nodes/${node.id}`,
       { x: node.x, y: node.y }).subscribe({
       next: u => {
@@ -282,7 +315,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     });
   }
 
-  /* ─── Node edit (quick panel) ───────────────────────── */
   openNodeEdit(node: WorkflowNode) {
     this.editingNode = { ...node };
     this.showNodeEdit.set(true);
@@ -298,14 +330,12 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
         this.selectedWf.set(u);
         this.workflows.update(l => l.map(w => w.id === u.id ? u : w));
         this.showNodeEdit.set(false);
-        // Sync selected node reference
         const updated = u.nodes.find(n => n.id === this.editingNode.id);
         if (updated) this.selectedNode.set(updated);
       }
     });
   }
 
-  /* ─── Edge drawing mode ─────────────────────────────── */
   toggleEdgeDrawing() {
     const next = !this.edgeDrawing();
     this.edgeDrawing.set(next);
@@ -341,7 +371,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     });
   }
 
-  /* ─── Zoom ──────────────────────────────────────────── */
   onWheel(e: WheelEvent) {
     e.preventDefault();
     this.scale.set(Math.max(0.15, Math.min(3, this.scale() * (e.deltaY < 0 ? 1.1 : 0.9))));
@@ -358,14 +387,13 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
     const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad;
     const cw = maxX - minX, ch = maxY - minY;
-    const vw = window.innerWidth - 320 - 72, vh = window.innerHeight - 120; // account for palette
+    const vw = window.innerWidth - 320 - 72, vh = window.innerHeight - 120;
     const s  = Math.min(vw / cw, vh / ch, 1.15);
     this.scale.set(+s.toFixed(3));
     this.tx.set(Math.round((vw - cw * s) / 2 - minX * s));
     this.ty.set(Math.round((vh - ch * s) / 2 - minY * s + 40));
   }
 
-  /* ─── Geometry helpers ──────────────────────────────── */
   private getNode(id: string): WorkflowNode | undefined {
     return this.selectedWf()?.nodes.find(n => n.id === id);
   }
@@ -436,7 +464,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     };
   }
 
-  /* Edge preview line (while drawing) */
   get edgePreviewPath(): string {
     if (!this.edgeSrcNode || !this.edgePreviewEnd) return '';
     const src = this.edgeSrcNode;
@@ -444,7 +471,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     return `M${sp.x},${sp.y} L${this.edgePreviewEnd.x},${this.edgePreviewEnd.y}`;
   }
 
-  /* ─── Node visual helpers ───────────────────────────── */
   splitLabel(label: string, max = 14): string[] {
     const words = label.split(' ');
     const lines: string[] = [];
@@ -494,7 +520,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     }
   }
 
-  /* ─── CRUD ──────────────────────────────────────────── */
   openCreateModal() {
     this.newWf = { name: '', description: '', category: '', defaultSlaHours: 48 };
     this.showCreateModal.set(true);
@@ -550,86 +575,6 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     });
   }
 
-  /* ─── Voice commands (designer only) ───────────────── */
-  toggleVoice() {
-    this.voiceListening() ? this.stopVoice() : this.startVoice();
-  }
-
-  startVoice() {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) { alert('Tu navegador no soporta reconocimiento de voz.'); return; }
-    this.recognition = new SpeechRecognition();
-    this.recognition.lang = 'es-ES';
-    this.recognition.continuous = true;
-    this.recognition.interimResults = true;
-    this.recognition.onresult = (ev: any) => {
-      const transcript = Array.from(ev.results as any[])
-        .map((r: any) => r[0].transcript).join('');
-      this.zone.run(() => {
-        this.voiceText.set(transcript);
-        if (ev.results[ev.results.length - 1].isFinal) {
-          this.processVoiceCommand(transcript.toLowerCase().trim());
-          this.voiceText.set('');
-        }
-      });
-    };
-    this.recognition.onerror = () => this.zone.run(() => this.stopVoice());
-    this.recognition.onend   = () => this.zone.run(() => this.voiceListening.set(false));
-    this.recognition.start();
-    this.voiceListening.set(true);
-  }
-
-  stopVoice() {
-    this.recognition?.stop();
-    this.recognition = null;
-    this.voiceListening.set(false);
-    this.voiceText.set('');
-  }
-
-  private processVoiceCommand(text: string) {
-    const wf = this.selectedWf();
-    if (!wf || wf.status !== 'DRAFT') return;
-
-    // "agregar tarea [nombre]"
-    const taskMatch = text.match(/(?:agregar|añadir|crear)\s+(?:tarea|task)\s+(.+)/);
-    if (taskMatch) {
-      const label = this.capitalize(taskMatch[1]);
-      const xs = wf.nodes.map(n => n.x);
-      const x = xs.length ? Math.max(...xs) + 220 : 300;
-      const y = wf.nodes[Math.floor(wf.nodes.length / 2)]?.y ?? 300;
-      this.dropNodeAt({ type: 'TASK', label, icon: 'task' }, x, y);
-      return;
-    }
-    // "agregar inicio"
-    if (/(?:agregar|añadir)\s+(?:nodo\s+)?inicio/.test(text)) {
-      this.dropNodeAt({ type: 'START', label: 'Inicio', icon: 'start' }, 100, 300);
-      return;
-    }
-    // "agregar fin"
-    if (/(?:agregar|añadir)\s+(?:nodo\s+)?fin/.test(text)) {
-      const xs = wf.nodes.map(n => n.x);
-      this.dropNodeAt({ type: 'END', label: 'Fin', icon: 'end' }, xs.length ? Math.max(...xs) + 220 : 600, 300);
-      return;
-    }
-    // "agregar decisión"
-    if (/(?:agregar|añadir)\s+(?:gateway\s+)?decisi[oó]n/.test(text)) {
-      const xs = wf.nodes.map(n => n.x);
-      this.dropNodeAt({ type: 'DECISION', label: 'Decisión', icon: 'decision' }, xs.length ? Math.max(...xs) + 220 : 400, 300);
-      return;
-    }
-    // "publicar"
-    if (/publicar/.test(text)) { this.publishWorkflow(wf.id); return; }
-    // "ajustar vista"
-    if (/(?:ajustar|centrar)\s+vista/.test(text)) { this.fitView(); return; }
-    // "acercar"
-    if (/acercar/.test(text)) { this.zoomIn(); return; }
-    // "alejar"
-    if (/alejar/.test(text)) { this.zoomOut(); return; }
-  }
-
-  private capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-  /* ─── Misc helpers ──────────────────────────────────── */
   statusClass(s: string): string {
     const m: Record<string, string> = {
       DRAFT: 'bg-amber-950 text-amber-400',

@@ -90,4 +90,15 @@ public class UserController {
         userRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/me/fcm-token")
+    public ResponseEntity<Void> updateFcmToken(@AuthenticationPrincipal String userId,
+            @RequestBody Map<String, String> body) {
+        String token = body.get("token");
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setFcmToken(token);
+            userRepository.save(user);
+        });
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -99,4 +99,14 @@ export class NotificationService {
     this.notifications.update(list => list.map(n => n.id === id ? { ...n, read: true } : n));
     this.unreadCount.update(c => Math.max(0, c - 1));
   }
+
+  markAllAsRead() {
+    this.notifications.update(list => list.map(n => ({ ...n, read: true })));
+    this.unreadCount.set(0);
+  }
+
+  clearAll() {
+    this.notifications.set([]);
+    this.unreadCount.set(0);
+  }
 }

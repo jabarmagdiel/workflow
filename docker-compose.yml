@@ -1,23 +1,6 @@
 version: '3.9'
 
 services:
-  # ─── DATABASE ─────────────────────────────────────────────────
-  mongodb:
-    image: mongo:7.0
-    container_name: bpflow-mongodb
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: bpflow
-      MONGO_INITDB_ROOT_PASSWORD: bpflow_secret_2024
-      MONGO_INITDB_DATABASE: bpflow_db
-    volumes:
-      - mongo_data:/data/db
-      - ./bpflow-backend/src/main/resources/mongo-init.js:/docker-entrypoint-initdb.d/init.js
-    ports:
-      - "27017:27017"
-    networks:
-      - bpflow-network
-
   # ─── SPRING BOOT BACKEND ──────────────────────────────────────
   backend:
     build:
@@ -26,9 +9,9 @@ services:
     container_name: bpflow-backend
     restart: unless-stopped
     depends_on:
-      - mongodb
+      - ai-service
     environment:
-      SPRING_DATA_MONGODB_URI: mongodb://bpflow:bpflow_secret_2024@mongodb:27017/bpflow_db?authSource=admin
+      SPRING_DATA_MONGODB_URI: mongodb+srv://admin:70486379Jose@cluster0.gshohgn.mongodb.net/bpflow_db?retryWrites=true&w=majority
       SPRING_DATA_MONGODB_DATABASE: bpflow_db
       JWT_SECRET: BPFlow_JWT_Super_Secret_Key_2024_Change_In_Prod_256bits
       JWT_EXPIRATION_MS: 86400000
@@ -47,10 +30,8 @@ services:
       dockerfile: Dockerfile
     container_name: bpflow-ai
     restart: unless-stopped
-    depends_on:
-      - mongodb
     environment:
-      MONGODB_URI: mongodb://bpflow:bpflow_secret_2024@mongodb:27017/bpflow_db?authSource=admin
+      MONGODB_URI: mongodb+srv://admin:70486379Jose@cluster0.gshohgn.mongodb.net/bpflow_db?retryWrites=true&w=majority
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ENV: production
     ports:
@@ -88,8 +69,7 @@ services:
     networks:
       - bpflow-network
 
-volumes:
-  mongo_data:
+# Se elimino mongo_data para usar Atlas
 
 networks:
   bpflow-network:

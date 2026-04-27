@@ -8,6 +8,8 @@ import com.bpflow.websocket.NotificationWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import java.time.LocalDateTime;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -16,6 +18,18 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationWebSocketHandler wsHandler;
+    private final FcmService fcmService;
+    private final com.bpflow.repository.UserRepository userRepository;
+
+    private void sendToUser(String userId, Notification n) {
+        wsHandler.sendToUser(userId, n);
+        
+        userRepository.findById(userId).ifPresent(user -> {
+            if (user.getFcmToken() != null) {
+                fcmService.sendPushNotification(user.getFcmToken(), n.getTitle(), n.getMessage());
+            }
+        });
+    }
 
     public void notifyTaskAssigned(Task task, String recipientId) {
         if (recipientId == null)
@@ -29,7 +43,7 @@ public class NotificationService {
                 .relatedId(task.getId())
                 .build();
         notificationRepository.save(n);
-        wsHandler.sendToUser(recipientId, n);
+        sendToUser(recipientId, n);
     }
 
     public void notifyInstanceCompleted(WorkflowInstance instance, String userId) {
@@ -42,7 +56,7 @@ public class NotificationService {
                 .relatedId(instance.getId())
                 .build();
         notificationRepository.save(n);
-        wsHandler.sendToUser(instance.getInitiatedBy(), n);
+        sendToUser(instance.getInitiatedBy(), n);
     }
 
     public void notifyInstanceCancelled(WorkflowInstance instance, String userId) {
@@ -55,7 +69,7 @@ public class NotificationService {
                 .relatedId(instance.getId())
                 .build();
         notificationRepository.save(n);
-        wsHandler.sendToUser(instance.getInitiatedBy(), n);
+        sendToUser(instance.getInitiatedBy(), n);
     }
 
     public void notifyFraudAlert(String adminId, String alertMessage) {
@@ -67,11 +81,11 @@ public class NotificationService {
                 .relatedType("FRAUD_ALERT")
                 .build();
         notificationRepository.save(n);
-        wsHandler.sendToUser(adminId, n);
+        sendToUser(adminId, n);
     }
 
     public void notifyTest(String userId, Notification n) {
-        wsHandler.sendToUser(userId, n);
+        sendToUser(userId, n);
     }
 
     public void broadcastEvent(String eventType, Object data) {

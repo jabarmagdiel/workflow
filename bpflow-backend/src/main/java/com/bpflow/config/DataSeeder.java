@@ -134,6 +134,45 @@ public class DataSeeder implements ApplicationRunner {
         workflowRepository.save(wf);
         log.info("✅ f1-proces workflow seeded successfully with {} nodes and {} edges",
                 nodes.size(), edges.size());
+
+        seedExpenseWorkflow();
+    }
+
+    private void seedExpenseWorkflow() {
+        if (workflowRepository.existsByName("expense-approval")) return;
+
+        log.info("Seeding expense-approval workflow...");
+        String start = uid();
+        String review = uid();
+        String finance = uid();
+        String end = uid();
+
+        List<WorkflowNode> nodes = List.of(
+            node(start, "Inicio Solicitud", WorkflowNode.NodeType.START, null, true, false, 0, 100, 100),
+            node(review, "Revisión Jefe Directo", WorkflowNode.NodeType.TASK, "MANAGER", false, false, 24, 300, 100),
+            node(finance, "Validación Finanzas", WorkflowNode.NodeType.TASK, "OFFICER", false, false, 48, 500, 100),
+            node(end, "Gasto Aprobado", WorkflowNode.NodeType.END, null, false, true, 0, 700, 100)
+        );
+
+        List<WorkflowEdge> edges = List.of(
+            edge(start, review, "SEQUENCE", null, ""),
+            edge(review, finance, "CONDITIONAL", "APPROVE", "Aprobado Jefe"),
+            edge(finance, end, "CONDITIONAL", "APPROVE", "Validado")
+        );
+
+        Workflow expenseWf = Workflow.builder()
+                .name("expense-approval")
+                .description("Proceso para la aprobación de gastos corporativos y viáticos")
+                .category("Finanzas")
+                .status(Workflow.WorkflowStatus.PUBLISHED)
+                .version(1)
+                .nodes(nodes)
+                .edges(edges)
+                .defaultSlaHours(72)
+                .build();
+
+        workflowRepository.save(expenseWf);
+        log.info("✅ expense-approval workflow seeded successfully");
     }
 
     // ── Helpers ───────────────────────────────────────────────────

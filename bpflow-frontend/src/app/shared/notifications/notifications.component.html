@@ -1,17 +1,17 @@
 <div class="toast-container">
   <div *ngFor="let toast of notificationService.toasts()" [@toastAnimation]
        class="toast" [ngClass]="getBorderColor(toast.type)">
-    
-    <div class="text-2xl pt-1">
+     
+    <div class="w-10 h-10 rounded-full flex items-center justify-center bg-slate-800/50 text-xl backdrop-blur-sm border border-slate-700/50">
       {{ getIcon(toast.type) }}
     </div>
     
     <div class="flex-1">
-      <h4 class="font-bold text-sm text-slate-100">{{ toast.title }}</h4>
-      <p class="text-xs mt-1 text-slate-300 opacity-90 leading-relaxed">{{ toast.message }}</p>
+      <h4 class="font-bold text-sm text-white">{{ toast.title }}</h4>
+      <p class="text-xs mt-1 text-slate-400 opacity-90 leading-relaxed">{{ toast.message }}</p>
     </div>
 
-    <button class="toast-close text-slate-400" (click)="notificationService.markAsRead(toast.id)">
+    <button class="toast-close text-slate-500 hover:text-white" (click)="notificationService.markAsRead(toast.id)">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
     </button>
   </div>
@@ -21,46 +21,72 @@
 <div *ngIf="notificationService.showPanel()" 
      class="fixed inset-0 z-[60] flex justify-end"
      (click)="notificationService.togglePanel()">
-  <div class="w-full max-w-sm h-full glass-panel border-l border-slate-800 shadow-2xl flex flex-col p-6 animate-slide-in"
+  
+  <div class="w-full max-w-sm h-full glass-panel flex flex-col p-8 animate-slide-in"
        (click)="$event.stopPropagation()">
     
-    <div class="flex justify-between items-center mb-8">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-10">
       <div>
-        <h2 class="text-xl font-bold text-slate-100">Notifications</h2>
-        <p class="text-xs text-slate-500">{{ notificationService.unreadCount() }} unread messages</p>
+        <h2 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-500">Notifications</h2>
+        <div class="flex items-center gap-2 mt-1">
+          <span class="unread-dot"></span>
+          <p class="text-[10px] uppercase tracking-widest font-semibold text-blue-500/80">{{ notificationService.unreadCount() }} New Events</p>
+        </div>
       </div>
-      <button (click)="notificationService.togglePanel()" class="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors">
+      <button (click)="notificationService.togglePanel()" class="p-3 hover:bg-white/5 rounded-2xl text-slate-400 hover:text-white transition-all">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
       </button>
     </div>
 
-    <div class="flex-1 overflow-y-auto custom-scrollbar space-y-4">
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-3">
       <div *ngFor="let n of notificationService.notifications()" 
-           class="p-4 rounded-xl border border-slate-800/50 hover:bg-slate-800/30 transition-all cursor-pointer group"
+           class="group relative p-4 rounded-2xl border border-white/5 bg-white/0 hover:bg-white/5 transition-all duration-300 cursor-pointer overflow-hidden"
            [class.opacity-60]="n.read"
            (click)="notificationService.markAsRead(n.id)">
+        
+        <div *ngIf="!n.read" class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500/50 shadow-[0_0_10px_#3b82f6]"></div>
+
         <div class="flex gap-4">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center bg-slate-800 text-xl">
+          <div class="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-900/50 text-xl border border-white/10 group-hover:scale-105 transition-transform duration-300">
             {{ getIcon(n.type) }}
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-start mb-1">
-              <h4 class="text-sm font-semibold text-slate-200 truncate group-hover:text-blue-400 transition-colors">{{ n.title }}</h4>
-              <span class="text-[10px] text-slate-500 whitespace-nowrap ml-2">{{ n.createdAt | date:'shortTime' }}</span>
+              <h4 class="text-sm font-bold text-slate-100 group-hover:text-blue-400 transition-colors">{{ n.title }}</h4>
+              <span class="text-[10px] font-medium text-slate-500 whitespace-nowrap ml-2">{{ n.createdAt | date:'shortTime' }}</span>
             </div>
-            <p class="text-xs text-slate-400 leading-relaxed">{{ n.message }}</p>
+            <p class="text-xs text-slate-400 leading-relaxed font-light">{{ n.message }}</p>
           </div>
         </div>
       </div>
       
-      <div *ngIf="notificationService.notifications().length === 0" class="flex flex-col items-center justify-center py-20 text-slate-500">
-        <svg class="w-12 h-12 opacity-20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-        <p class="text-sm">No notifications yet</p>
+      <!-- Empty State -->
+      <div *ngIf="notificationService.notifications().length === 0" class="flex flex-col items-center justify-center py-24">
+        <div class="relative mb-6">
+          <svg class="w-16 h-16 text-slate-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+          </svg>
+          <div class="absolute -top-1 -right-1 w-4 h-4 bg-slate-900 rounded-full flex items-center justify-center">
+            <div class="w-2 h-2 bg-slate-700 rounded-full"></div>
+          </div>
+        </div>
+        <h5 class="text-slate-300 font-bold mb-1">Stay Quiet</h5>
+        <p class="text-xs text-slate-500">Everything is running smoothly</p>
       </div>
     </div>
 
-    <div class="pt-6 border-t border-slate-800/50 mt-auto">
-      <button class="w-full py-2 text-xs text-slate-400 hover:text-blue-400 transition-colors font-medium">Clear All Notifications</button>
+    <!-- Actions -->
+    <div class="pt-8 border-t border-white/5 mt-auto flex gap-4">
+      <button (click)="notificationService.markAllAsRead()" 
+              class="flex-1 py-3 px-4 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all">
+        Read All
+      </button>
+      <button (click)="notificationService.clearAll()" 
+              class="flex-1 py-3 px-4 rounded-xl text-xs font-bold text-slate-600 hover:text-rose-400 transition-all">
+        Clear History
+      </button>
     </div>
   </div>
 </div>
