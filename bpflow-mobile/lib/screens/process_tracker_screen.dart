@@ -71,7 +71,6 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
             onPressed: _fetchInstances,
           ),
           IconButton(
-...
             icon: const Icon(Icons.logout, color: Colors.white70),
             onPressed: () {
               Provider.of<AuthProvider>(context, listen: false).logout();
