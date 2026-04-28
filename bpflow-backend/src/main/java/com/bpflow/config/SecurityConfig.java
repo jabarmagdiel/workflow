@@ -73,6 +73,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/files/**").permitAll() // Allow viewing documents without token in new tab
                         .requestMatchers("/ws/**").permitAll() // WebSocket
                         .requestMatchers("/actuator/health").permitAll()
                         // Role-based
