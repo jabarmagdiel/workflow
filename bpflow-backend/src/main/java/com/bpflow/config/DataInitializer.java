@@ -62,8 +62,12 @@ public class DataInitializer implements CommandLineRunner {
                     .workflowName(mainWf.getName())
                     .referenceNumber("PROC-2024-" + String.format("%03d", i))
                     .initiatedBy(client.getId())
+                    .clientId(client.getId())
+                    .clientName(client.getFirstName() + " " + client.getLastName())
+                    .clientEmail(client.getEmail())
                     .status(isCompleted ? WorkflowInstance.InstanceStatus.COMPLETED : WorkflowInstance.InstanceStatus.RUNNING)
                     .priority(i % 3 == 0 ? WorkflowInstance.Priority.HIGH : WorkflowInstance.Priority.NORMAL)
+                    .currentNodeName(isCompleted ? "Finalizado" : "Revisión Manual")
                     .createdAt(LocalDateTime.now().minusDays(i))
                     .history(new ArrayList<>())
                     .build();

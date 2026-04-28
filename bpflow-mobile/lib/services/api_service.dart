@@ -5,7 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 
 class ApiService {
-  static const String baseUrl = "http://localhost:8080/api"; // Cambiar a IP servidor en dispositivo real
+  static const String baseUrl = "http://98.85.254.204/api";
   final storage = const FlutterSecureStorage();
 
   Future<Map<String, dynamic>?> login(String email, String password) async {

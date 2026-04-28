@@ -49,15 +49,29 @@ public class WorkflowEngineService {
 
         String refNumber = generateReferenceNumber(wf.getName());
 
+        // Fetch client details
+        String clientName = "Consumidor Final";
+        String clientEmail = "";
+        if (clientId != null) {
+            User client = userRepository.findById(clientId).orElse(null);
+            if (client != null) {
+                clientName = client.getFirstName() + " " + client.getLastName();
+                clientEmail = client.getEmail();
+            }
+        }
+
         WorkflowInstance instance = WorkflowInstance.builder()
                 .workflowId(workflowId)
                 .workflowName(wf.getName())
                 .workflowVersion(wf.getVersion())
                 .initiatedBy(userId)
                 .clientId(clientId)
+                .clientName(clientName)
+                .clientEmail(clientEmail)
                 .status(WorkflowInstance.InstanceStatus.RUNNING)
                 .activeNodeIds(firstTask != null ? List.of(firstTask.getId()) : List.of())
                 .currentNodeId(firstTask != null ? firstTask.getId() : null)
+                .currentNodeName(firstTask != null ? firstTask.getLabel() : "Inicio")
                 .variables(initialVariables != null ? new HashMap<>(initialVariables) : new HashMap<>())
                 .priority(priority != null ? priority : WorkflowInstance.Priority.NORMAL)
                 .referenceNumber(refNumber)
@@ -180,6 +194,8 @@ public class WorkflowEngineService {
                 } else {
                     createTask(wf, instance, nextNode, userId);
                     newActiveNodes.add(nextNode.getId());
+                    instance.setCurrentNodeId(nextNode.getId());
+                    instance.setCurrentNodeName(nextNode.getLabel());
                 }
             }
 

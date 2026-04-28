@@ -32,6 +32,8 @@ public class WorkflowInstance {
 
     private String initiatedBy; // userId who started
     private String clientId; // client the process belongs to
+    private String clientName; 
+    private String clientEmail;
 
     @Builder.Default
     private InstanceStatus status = InstanceStatus.RUNNING;
@@ -41,6 +43,7 @@ public class WorkflowInstance {
     private List<String> activeNodeIds = new ArrayList<>();
 
     private String currentNodeId;
+    private String currentNodeName;
 
     // Process variables (form data collected across nodes)
     @Builder.Default
