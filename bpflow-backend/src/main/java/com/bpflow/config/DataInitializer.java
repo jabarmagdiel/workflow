@@ -159,14 +159,18 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private User upsertUser(String email, String password, String firstName, String lastName, String role) {
-        User user = userRepository.findByEmail(email).orElse(new User());
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(password));
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
-        user.setRoles(Set.of(role));
-        user.setEnabled(true);
-        user.setAccountNonLocked(true);
-        return userRepository.save(user);
+        // ← FIX: if the user already exists, NEVER overwrite their password or data
+        return userRepository.findByEmail(email).orElseGet(() -> {
+            User user = new User();
+            user.setEmail(email);
+            user.setPassword(passwordEncoder.encode(password));
+            user.setFirstName(firstName);
+            user.setLastName(lastName);
+            user.setRoles(Set.of(role));
+            user.setEnabled(true);
+            user.setAccountNonLocked(true);
+            log.info("🌱 Seeding default user: {}", email);
+            return userRepository.save(user);
+        });
     }
 }

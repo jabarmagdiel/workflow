@@ -58,8 +58,10 @@ public class UserController {
             user.setPhone(updated.getPhone());
             user.setDepartment(updated.getDepartment());
             user.setPosition(updated.getPosition());
-            user.setPassword(null);
-            return ResponseEntity.ok(userRepository.save(user));
+            
+            User saved = userRepository.save(user);
+            saved.setPassword(null); // Clear only for response
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -69,8 +71,10 @@ public class UserController {
             @RequestBody Map<String, List<String>> body) {
         return userRepository.findById(id).map(user -> {
             user.setRoles(Set.copyOf(body.get("roles")));
-            user.setPassword(null);
-            return ResponseEntity.ok(userRepository.save(user));
+            
+            User saved = userRepository.save(user);
+            saved.setPassword(null); // Clear only for response
+            return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
 

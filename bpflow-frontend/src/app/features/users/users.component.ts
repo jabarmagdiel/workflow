@@ -125,7 +125,8 @@ export class UsersComponent implements OnInit {
         lastName: formData.lastName,
         phone: formData.phone,
         department: formData.department,
-        position: formData.position
+        position: formData.position,
+        role: formData.roles?.[0] || 'CLIENT'   // ← FIX: send role to backend
       };
 
       this.userService.createUser(newUser).subscribe({

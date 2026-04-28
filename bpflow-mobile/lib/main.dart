@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'services/push_notification_service.dart';
 import 'providers/auth_provider.dart';
@@ -8,12 +7,14 @@ import 'screens/process_tracker_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // FIX: Firebase initialization is optional — never crash the app if it fails
   try {
-    await Firebase.initializeApp();
+    // Only initialize Firebase if google-services.json is present
     await PushNotificationService.initialize();
   } catch (e) {
-    print("Firebase initialization error: $e");
+    debugPrint("⚠️ Firebase not configured (push notifications disabled): $e");
+    // Continue without Firebase — core login+workflow still works
   }
 
   runApp(
@@ -35,7 +36,7 @@ class MyApp extends StatelessWidget {
       title: 'BPFlow Mobile',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigoAccent),
         useMaterial3: true,
       ),
       home: const RootScreen(),

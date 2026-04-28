@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,20 +15,79 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  void _handleLogin() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final success = await auth.login(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
+  // Debug settings
+  int _logoTapCount = 0;
+  final _apiController = TextEditingController(text: ApiService.baseUrl);
 
-    if (success && mounted) {
-      // Navigation happens automatically via consumer in main.dart or manual push
-    } else if (mounted) {
+  void _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error al iniciar sesión. Verifique sus credenciales.")),
+        const SnackBar(
+          content: Text("Por favor ingrese su correo y contraseña."),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final success = await auth.login(email, password);
+
+    if (!success && mounted) {
+      final msg = auth.errorMessage ?? "Error al iniciar sesión. Verifique sus credenciales.";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 4),
+        ),
       );
     }
+  }
+
+  void _showDebugMenu() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text("Configuración de Servidor", style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Cambiar la URL base de la API:", style: TextStyle(color: Colors.white70)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _apiController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: "Base URL",
+                labelStyle: TextStyle(color: Colors.indigoAccent),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar", style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              ApiService.baseUrl = _apiController.text.trim();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("URL actualizada a: ${ApiService.baseUrl}")),
+              );
+            },
+            child: const Text("Guardar"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -48,7 +108,26 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.account_tree_outlined, size: 80, color: Colors.indigoAccent),
+                  // Logo with secret tap for debug
+                  GestureDetector(
+                    onTap: () {
+                      _logoTapCount++;
+                      if (_logoTapCount >= 5) {
+                        _logoTapCount = 0;
+                        _showDebugMenu();
+                      }
+                    },
+                    child: Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        color: Colors.indigoAccent.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.indigoAccent.withOpacity(0.4), width: 2),
+                      ),
+                      child: const Icon(Icons.account_tree_outlined, size: 48, color: Colors.indigoAccent),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   const Text(
                     "BPFlow",
@@ -64,8 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(color: Colors.white70),
                   ),
                   const SizedBox(height: 48),
-                  
-                  // TextFields Container
+
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -77,6 +155,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: [
                         TextField(
                           controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          autocorrect: false,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
                             hintText: "Correo electrónico",
@@ -117,33 +197,46 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   Consumer<AuthProvider>(
                     builder: (context, auth, _) {
                       return auth.isLoading
-                        ? const CircularProgressIndicator(color: Colors.indigoAccent)
-                        : SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: ElevatedButton(
-                              onPressed: _handleLogin,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.indigoAccent,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                          ? Column(
+                              children: [
+                                const CircularProgressIndicator(color: Colors.indigoAccent),
+                                const SizedBox(height: 12),
+                                const Text("Conectando...", style: TextStyle(color: Colors.white54)),
+                              ],
+                            )
+                          : SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: ElevatedButton(
+                                onPressed: _handleLogin,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.indigoAccent,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  elevation: 0,
                                 ),
-                                elevation: 0,
+                                child: const Text(
+                                  "Iniciar Sesión",
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
                               ),
-                              child: const Text(
-                                "Iniciar Sesión",
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          );
+                            );
                     },
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  Text(
+                    "Toca 5 veces el logo para configurar servidor",
+                    style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 10),
                   ),
                 ],
               ),
