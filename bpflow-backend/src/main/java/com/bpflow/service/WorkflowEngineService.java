@@ -157,8 +157,9 @@ public class WorkflowEngineService {
                 action, instance.getVariables());
 
         if (nextNodes.isEmpty()) {
-            // Workflow complete
+            // Workflow complete because no outgoing edges match
             completeInstance(instance, userId);
+            instanceRepository.save(instance);
         } else {
             // Check for parallel completion
             List<String> remainingActive = new ArrayList<>(instance.getActiveNodeIds());
@@ -169,8 +170,11 @@ public class WorkflowEngineService {
             for (WorkflowNode nextNode : nextNodes) {
                 if (nextNode.getType() == WorkflowNode.NodeType.END || nextNode.isEndNode()) {
                     if (remainingActive.isEmpty()) {
+                        instance.setCurrentNodeId(nextNode.getId());
+                        instance.setCurrentNodeName(nextNode.getLabel());
                         completeInstance(instance, userId);
-                        return instanceRepository.save(instance);
+                        instanceRepository.save(instance);
+                        break;
                     }
                 } else if (nextNode.getType() == WorkflowNode.NodeType.PARALLEL_GATEWAY) {
                     createParallelTasks(wf, instance, nextNode, userId);
@@ -297,6 +301,10 @@ public class WorkflowEngineService {
         instance.setStatus(WorkflowInstance.InstanceStatus.COMPLETED);
         instance.setCompletedAt(LocalDateTime.now());
         instance.setActiveNodeIds(new ArrayList<>());
+        
+        if (instance.getCurrentNodeName() == null || instance.getCurrentNodeName().isEmpty()) {
+            instance.setCurrentNodeName("Finalizado");
+        }
 
         if (instance.getDueAt() != null && LocalDateTime.now().isAfter(instance.getDueAt())) {
             instance.setSlaBreached(true);
