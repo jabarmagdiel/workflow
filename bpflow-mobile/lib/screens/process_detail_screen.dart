@@ -33,14 +33,14 @@ class _ProcessDetailScreenState extends State<ProcessDetailScreen> {
 
   bool _isUploading = false;
   void _uploadDocument() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
-    );
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
+      );
 
-    if (result != null && mounted) {
-      setState(() => _isUploading = true);
-      try {
+      if (result != null && result.files.single.path != null && mounted) {
+        setState(() => _isUploading = true);
         final tasks = await _apiService.getMyTasks();
         final task = tasks.firstWhere(
           (t) => t['instanceId'] == widget.instance['id'],
