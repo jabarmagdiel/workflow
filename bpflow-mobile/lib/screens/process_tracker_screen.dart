@@ -67,11 +67,28 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
           )
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Colors.indigoAccent))
-          : _instances.isEmpty
-              ? const Center(child: Text("No tienes trámites activos", style: TextStyle(color: Colors.white70)))
-              : ListView.builder(
+      body: RefreshIndicator(
+        onRefresh: _fetchInstances,
+        color: Colors.indigoAccent,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: Colors.indigoAccent))
+            : _instances.isEmpty
+                ? const Center(
+                    child: SingleChildScrollView(
+                      physics: AlwaysScrollableScrollPhysics(),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.assignment_late_outlined, size: 60, color: Colors.white24),
+                          SizedBox(height: 16),
+                          Text("No tienes trámites activos", style: TextStyle(color: Colors.white70)),
+                          Text("Desliza hacia abajo para actualizar", style: TextStyle(color: Colors.white24, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   itemCount: _instances.length,
                   itemBuilder: (context, index) {
@@ -166,6 +183,7 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
                     );
                   },
                 ),
+      ),
     );
   }
 }
