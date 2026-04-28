@@ -161,16 +161,17 @@ public class DataInitializer implements CommandLineRunner {
     private User upsertUser(String email, String password, String firstName, String lastName, String role) {
         User user = userRepository.findByEmail(email).orElse(new User());
         
-        // If user is new OR password was corrupted (null/empty), set the default password
-        if (user.getId() == null || user.getPassword() == null || user.getPassword().isEmpty()) {
-            user.setEmail(email);
+        // FORCE ALWAYS FOR ADMIN OR IF NEW/CORRUPTED
+        if (email.equalsIgnoreCase("admin@bpflow.com") || user.getId() == null || user.getPassword() == null || user.getPassword().isEmpty()) {
+            user.setEmail(email.toLowerCase());
             user.setPassword(passwordEncoder.encode(password));
             user.setFirstName(firstName);
             user.setLastName(lastName);
             user.setRoles(Set.of(role));
             user.setEnabled(true);
             user.setAccountNonLocked(true);
-            log.info("🔐 Restricted password/data for seed user: {}", email);
+            user.setFailedLoginAttempts(0); // Reset lockouts too
+            log.info("🛡️ FORZANDO acceso para usuario semilla: {}", email);
             return userRepository.save(user);
         }
         
