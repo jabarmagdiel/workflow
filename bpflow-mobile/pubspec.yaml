@@ -20,7 +20,7 @@ dependencies:
   firebase_core: ^4.7.0
   firebase_messaging: ^16.2.0
   path_provider: ^2.1.5
-  open_file_plus: ^10.1.0
+  open_file_plus: any
   url_launcher: ^6.3.2
 
 dev_dependencies:

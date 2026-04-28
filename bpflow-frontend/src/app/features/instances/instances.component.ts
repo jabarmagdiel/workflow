@@ -82,6 +82,7 @@ export class InstancesComponent implements OnInit {
   tasks       = signal<Task[]>([]);
   selectedInst= signal<WorkflowInstance | null>(null);
   instTasks   = signal<Task[]>([]);
+  availableClients = signal<any[]>([]);
 
   // UI state
   loading     = signal(true);
@@ -117,6 +118,15 @@ export class InstancesComponent implements OnInit {
     // Load all tasks for current user (by role, backend filters)
     this.http.get<Task[]>('/api/tasks').subscribe({
       next: t => this.tasks.set(t),
+      error: () => {}
+    });
+
+    // Load clients
+    this.http.get<any[]>('/api/users').subscribe({
+      next: users => {
+        const filtered = users.filter(u => u.roles.includes('CLIENT'));
+        this.availableClients.set(filtered);
+      },
       error: () => {}
     });
   }

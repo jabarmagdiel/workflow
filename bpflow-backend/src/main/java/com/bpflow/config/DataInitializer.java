@@ -26,6 +26,10 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        // Clear old data for the demo
+        workflowInstanceRepository.deleteAll();
+        taskRepository.deleteAll();
+
         log.info("🚀 Initiating Massive Data Injection...");
         
         // 1. Users

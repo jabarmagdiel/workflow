@@ -130,8 +130,13 @@
       </div>
 
       <div class="form-group">
-        <label>ID de Cliente / Referencia</label>
-        <input [(ngModel)]="startForm.clientId" placeholder="Ej: CLI-001" />
+        <label>Cliente Asociado *</label>
+        <select [(ngModel)]="startForm.clientId">
+          <option value="">— Seleccionar Cliente —</option>
+          @for (client of availableClients(); track client.id) {
+            <option [value]="client.id">{{ client.firstName }} {{ client.lastName }} ({{ client.email }})</option>
+          }
+        </select>
       </div>
 
       <div class="form-group">

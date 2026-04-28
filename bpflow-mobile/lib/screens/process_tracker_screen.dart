@@ -79,8 +79,8 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
                     final history = instance['history'] as List<dynamic>? ?? [];
                     final lastStep = history.isNotEmpty ? history.last : null;
                     
-                    // Supongamos que el "departamento" viene del nombre del nodo actual o el último realizado
-                    final department = lastStep != null ? lastStep['nodeName'] : "Iniciando...";
+                    // Priorizar el nombre del nodo actual del backend
+                    final department = instance['currentNodeName'] ?? (lastStep != null ? lastStep['nodeName'] : "Iniciando...");
                     
                     return InkWell(
                       onTap: () {
@@ -127,16 +127,27 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
                                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                               ),
                               const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(Icons.location_on_outlined, size: 16, color: Colors.white54),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    "Ubicación actual: $department",
-                                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                                  ),
-                                ],
-                              ),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.person_outline, size: 16, color: Colors.white54),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "Cliente: ${instance['clientName'] ?? 'No asignado'}",
+                                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.location_on_outlined, size: 16, color: Colors.white54),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "Ubicación actual: $department",
+                                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
                               const Divider(color: Colors.white10, height: 24),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
