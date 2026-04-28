@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:open_file_plus/open_file_plus.dart';
+import 'package:open_filex/open_filex.dart';
 import '../services/api_service.dart';
 
 class ProcessDetailScreen extends StatefulWidget {
@@ -22,7 +22,7 @@ class _ProcessDetailScreenState extends State<ProcessDetailScreen> {
     setState(() => _isDownloading = false);
 
     if (path != null && mounted) {
-      await OpenFile.open(path);
+      await OpenFilex.open(path);
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Error al descargar el reporte PDF")),
@@ -67,8 +67,17 @@ class _ProcessDetailScreenState extends State<ProcessDetailScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    "Estado: ${widget.instance['status']}",
+                    "Cliente: ${widget.instance['clientName'] ?? 'No especificado'}",
                     style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 16),
+                  ),
+                  Text(
+                    "Fase Actual: ${widget.instance['currentNodeName'] ?? '—'}",
+                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Estado: ${widget.instance['status']}",
+                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(

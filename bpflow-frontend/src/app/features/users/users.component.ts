@@ -33,7 +33,7 @@ export class UsersComponent implements OnInit {
     roles: [[]] // To easily handle multiple selection
   });
 
-  availableRoles = ['ADMIN', 'MANAGER', 'USER', 'AGENT'];
+  availableRoles = ['ADMIN', 'MANAGER', 'OFFICER', 'CLIENT', 'DESIGNER'];
 
   ngOnInit(): void {
     this.loadUsers();
@@ -59,7 +59,7 @@ export class UsersComponent implements OnInit {
     this.modalMode.set('CREATE');
     this.selectedUserId.set(null);
     this.userForm.reset({ roles: ['USER'] });
-    this.userForm.get('password')?.setValidators([Validators.required, Validators.minLength(6)]);
+    this.userForm.get('password')?.setValidators([Validators.required, Validators.minLength(8)]);
     this.userForm.get('password')?.updateValueAndValidity();
     this.isModalOpen.set(true);
   }
@@ -131,8 +131,9 @@ export class UsersComponent implements OnInit {
       this.userService.createUser(newUser).subscribe({
         next: (createdUser) => {
           // After creating the user, assign roles
-          if (createdUser.id && formData.roles.length > 0) {
-             this.userService.updateUserRoles(createdUser.id, formData.roles).subscribe(() => this.loadUsers());
+          const userId = createdUser.user?.id;
+          if (userId && formData.roles.length > 0) {
+             this.userService.updateUserRoles(userId, formData.roles).subscribe(() => this.loadUsers());
           } else {
              this.loadUsers();
           }
