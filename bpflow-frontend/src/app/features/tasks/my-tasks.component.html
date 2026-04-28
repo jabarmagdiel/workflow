@@ -57,10 +57,11 @@
       @for (task of filteredTasks(); track task.id) {
         <div (click)="selectTask(task)"
              [class.border-cyan-500]="selectedTask()?.id === task.id"
-             class="flex-shrink-0 p-4 bg-slate-900 border border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-800/80 transition-all group">
+             class="task-card flex-shrink-0 p-4 bg-slate-900 border border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-800/80 transition-all group">
+          <div class="status-indicator" [ngClass]="task.status"></div>
           <div class="flex justify-between items-start mb-2">
             <span [class]="priorityClass(task.priority)" class="text-[9px] px-2 py-0.5 rounded font-black uppercase">
-              {{ task.priority }}
+              {{ translatePriority(task.priority) }}
             </span>
             @if (task.overdue) {
               <span class="text-[9px] px-2 py-0.5 bg-red-950 text-red-400 rounded font-black">VENCIDA</span>
@@ -86,9 +87,9 @@
           <div>
             <div class="flex items-center gap-3 mb-2">
               <span [class]="priorityClass(selectedTask()!.priority)" class="text-[9px] px-2 py-0.5 rounded font-black uppercase">
-                {{ selectedTask()!.priority }}
+                {{ translatePriority(selectedTask()!.priority) }}
               </span>
-              <span class="text-xs text-slate-500 font-mono">{{ selectedTask()!.status }}</span>
+              <span class="text-xs text-slate-500 font-mono">{{ translateStatus(selectedTask()!.status) }}</span>
             </div>
             <h2 class="text-2xl font-black text-white">{{ selectedTask()!.title }}</h2>
             <p class="text-slate-400 mt-3 leading-relaxed">{{ selectedTask()!.description }}</p>
@@ -115,6 +116,32 @@
               <p class="text-sm text-white font-bold">{{ selectedTask()!.assignedRole }}</p>
             </div>
           </div>
+
+          <!-- Attachments Section -->
+          @if (selectedTask()!.attachments && selectedTask()!.attachments!.length > 0) {
+            <div class="space-y-3">
+              <h4 class="text-sm font-black text-slate-500 uppercase tracking-wider">Documentos Adjuntos</h4>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                @for (file of selectedTask()!.attachments; track file.fileName) {
+                  <div class="flex items-center justify-between p-3 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:border-cyan-600/50 transition-all group">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                      <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-slate-900 rounded-lg text-xl">
+                        {{ file.fileType.includes('pdf') ? '📄' : '🖼️' }}
+                      </div>
+                      <div class="overflow-hidden">
+                        <p class="text-white text-sm font-bold truncate">{{ file.fileName }}</p>
+                        <p class="text-slate-500 text-[10px] uppercase font-black">{{ file.fileSize / 1024 | number:'1.0-0' }} KB · {{ file.fileType.split('/')[1] }}</p>
+                      </div>
+                    </div>
+                    <a [href]="file.fileUrl" target="_blank"
+                       class="ml-2 px-3 py-1.5 bg-slate-900 hover:bg-cyan-900/30 text-cyan-400 text-xs font-bold rounded-lg border border-slate-700 transition-all group-hover:border-cyan-700">
+                      VER
+                    </a>
+                  </div>
+                }
+              </div>
+            </div>
+          }
 
           <!-- Action Section -->
           @if (selectedTask()!.status === 'NEW' || selectedTask()!.status === 'IN_PROGRESS') {
@@ -143,7 +170,7 @@
             <div class="p-8 text-center border-2 border-dashed border-slate-800 rounded-2xl">
               <p class="text-3xl mb-3">{{ selectedTask()!.status === 'COMPLETED' ? '✅' : '❌' }}</p>
               <p class="font-bold text-lg" [class.text-emerald-400]="selectedTask()!.status === 'COMPLETED'" [class.text-red-400]="selectedTask()!.status !== 'COMPLETED'">
-                Tarea {{ selectedTask()!.status === 'COMPLETED' ? 'Aprobada' : 'Rechazada' }}
+                Tarea {{ translateStatus(selectedTask()!.status) }}
               </p>
               @if (selectedTask()!.comment) {
                 <p class="text-slate-400 text-sm mt-2 italic">"{{ selectedTask()!.comment }}"</p>

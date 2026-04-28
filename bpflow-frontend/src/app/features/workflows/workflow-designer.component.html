@@ -27,7 +27,7 @@
             <h3 class="font-bold text-white text-sm leading-tight flex-1 truncate">{{ wf.name }}</h3>
             <span [class]="statusClass(wf.status)"
                   class="text-[9px] px-1.5 py-0.5 rounded font-black uppercase flex-shrink-0">
-              {{ wf.status }}
+              {{ wf.status === 'DRAFT' ? 'Borrador' : (wf.status === 'PUBLISHED' ? 'Publicado' : wf.status) }}
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-1 leading-tight line-clamp-2">{{ wf.description }}</p>
@@ -190,26 +190,26 @@
 
           <!-- ──── EDGES ──── -->
           @for (edge of selectedWf()!.edges; track edge.id) {
-            <g>
+            <g style="cursor:pointer" (click)="openEdgeEdit(edge, $event)" (dblclick)="deleteEdge(edge.id); $event.stopPropagation()">
               <path [attr.d]="edgePath(edge)"
-                    fill="none" stroke="#253a5c" stroke-width="2"
+                    fill="none" [attr.stroke]="selectedEdge()?.id === edge.id ? '#22d3ee' : '#253a5c'" 
+                    stroke-width="2"
                     marker-end="url(#arr)"/>
-              <!-- Invisible wider hit area for delete -->
+              <!-- Invisible wider hit area for delete/click -->
               @if (selectedWf()!.status === 'DRAFT') {
                 <path [attr.d]="edgePath(edge)"
-                      fill="none" stroke="transparent" stroke-width="12"
-                      style="cursor:pointer"
-                      (dblclick)="deleteEdge(edge.id); $event.stopPropagation()"/>
+                      fill="none" stroke="transparent" stroke-width="18"/>
               }
               @if (edgeMid(edge); as mid) {
-                <rect [attr.x]="mid.x - 27" [attr.y]="mid.y - 10"
-                      width="54" height="18" rx="5"
-                      fill="#0a1628" stroke="#1e3a5f" stroke-width="0.8"/>
+                <rect [attr.x]="mid.x - 35" [attr.y]="mid.y - 12"
+                      width="70" height="24" rx="5"
+                      [attr.fill]="selectedEdge()?.id === edge.id ? '#1e3a8a' : '#0a1628'" 
+                      stroke="#1e3a5f" stroke-width="0.8"/>
                 <text [attr.x]="mid.x" [attr.y]="mid.y + 1"
                       text-anchor="middle" dominant-baseline="central"
                       font-size="9.5" fill="#93c5fd"
                       font-family="Inter,system-ui,sans-serif" font-weight="600">
-                  {{ edge.label }}
+                  {{ edge.label || (edge.condition ? 'Condición...' : 'Secuencia') }}
                 </text>
               }
             </g>
@@ -282,9 +282,11 @@
                       {{ line }}
                     </text>
                   }
-                  @if (node.assignedRole) {
+                  @if (node.assignedUserId || node.assignedRole) {
                     <text x="0" y="26" text-anchor="middle" font-size="8.5" fill="#3d5a80"
-                          font-family="Inter,system-ui,sans-serif">{{ node.assignedRole }}</text>
+                          font-family="Inter,system-ui,sans-serif">
+                      {{ node.assignedUserId ? '👤 ' + getUserName(node.assignedUserId) : node.assignedRole }}
+                    </text>
                   }
                 }
               }
@@ -390,46 +392,251 @@
 
       <!-- ──── NODE EDIT PANEL ──── -->
       @if (showNodeEdit() && editingNode.id) {
-        <div class="nd-panel" (click)="$event.stopPropagation()">
+        <div class="nd-panel"
+             (click)="$event.stopPropagation()"
+             (mousedown)="$event.stopPropagation()"
+             (mouseup)="$event.stopPropagation()"
+             (pointerdown)="$event.stopPropagation()"
+             (wheel)="$event.stopPropagation()">
           <div class="nd-header">
             <span class="nd-type-badge"
                   [style.background]="nodeColor(selectedNode()!) + '22'"
                   [style.color]="nodeColor(selectedNode()!)">
-              {{ editingNode.type }}
+              @switch (editingNode.type) {
+                @case ('START')            { 🟢 Inicio }
+                @case ('END')              { 🔴 Fin }
+                @case ('TASK')             { 📋 Tarea }
+                @case ('DECISION')         { 🔀 Decisión }
+                @case ('PARALLEL_GATEWAY') { ⚡ Paralelo }
+                @case ('JOIN_GATEWAY')     { 🔗 Unión }
+                @case ('SUBPROCESS')       { 📦 Sub-Proceso }
+                @default                   { Nodo }
+              }
             </span>
             <button class="nd-close" (click)="showNodeEdit.set(false)">✕</button>
           </div>
 
           <div class="modal-fields" style="gap:10px">
+
+            <!-- ── Nombre (todos los tipos) ── -->
             <div class="mf-group">
               <label>Nombre del nodo</label>
               <input [(ngModel)]="editingNode.label" placeholder="Etiqueta visible"/>
             </div>
-            <div class="mf-group">
-              <label>Rol asignado</label>
-              <select [(ngModel)]="editingNode.assignedRole">
-                <option value="">— Sin asignar —</option>
-                @for (r of roles; track r) { <option [value]="r">{{ r }}</option> }
-              </select>
-            </div>
-            <div class="mf-group">
-              <label>SLA (horas)</label>
-              <input [(ngModel)]="editingNode.slaHours" type="number" min="0"/>
-            </div>
-            <div class="mf-checks">
-              <label><input type="checkbox" [(ngModel)]="editingNode.startNode"/> Nodo inicio</label>
-              <label><input type="checkbox" [(ngModel)]="editingNode.endNode"/> Nodo fin</label>
-            </div>
+
+            <!-- ════ INICIO ════ -->
+            @if (editingNode.type === 'START') {
+              <div class="nd-type-hint">
+                <span>🟢</span>
+                <p>Este nodo inicia el proceso. No requiere asignación. Solo puede haber <strong>uno</strong> por flujo.</p>
+              </div>
+              <div class="mf-checks">
+                <label><input type="checkbox" [(ngModel)]="editingNode.startNode"/> Marcar como nodo de inicio</label>
+              </div>
+            }
+
+            <!-- ════ FIN ════ -->
+            @if (editingNode.type === 'END') {
+              <div class="mf-group">
+                <label>Tipo de resultado</label>
+                <select [(ngModel)]="editingNode.label">
+                  <option value="Fin">— Genérico —</option>
+                  <option value="Aprobado">✅ Aprobado</option>
+                  <option value="Rechazado">❌ Rechazado</option>
+                  <option value="Cancelado">⚠️ Cancelado</option>
+                  <option value="Completado">🏁 Completado</option>
+                </select>
+              </div>
+              <div class="mf-group">
+                <label>Mensaje de cierre (opcional)</label>
+                <textarea [(ngModel)]="editingNode.description" rows="2" placeholder="Ej: El proceso fue aprobado por gerencia…"></textarea>
+              </div>
+              <div class="mf-checks">
+                <label><input type="checkbox" [(ngModel)]="editingNode.endNode"/> Marcar como nodo final</label>
+              </div>
+            }
+
+            <!-- ════ TAREA ════ -->
+            @if (editingNode.type === 'TASK') {
+              <div class="mf-group">
+                <label>Descripción / instrucciones</label>
+                <textarea [(ngModel)]="editingNode.description" rows="2"
+                          placeholder="Describir qué debe hacer el responsable en esta tarea…"></textarea>
+              </div>
+              <div class="mf-group">
+                <label>Rol asignado</label>
+                <select [(ngModel)]="editingNode.assignedRole">
+                  <option value="">— Sin asignar —</option>
+                  @for (r of roles; track r) {
+                    <option [value]="r">
+                      {{ r === 'ADMIN' ? '🔑 Administrador' : (r === 'MANAGER' ? '👔 Gerente' : (r === 'OFFICER' ? '🧑‍💼 Oficial' : (r === 'ANALYST' ? '📊 Analista' : r))) }}
+                    </option>
+                  }
+                </select>
+              </div>
+              <div class="mf-group">
+                <label>Usuario específico <span class="mf-hint">(anula el rol)</span></label>
+                <select [(ngModel)]="editingNode.assignedUserId">
+                  <option value="">— Ninguno (usar rol) —</option>
+                  @for (u of users(); track u.id) {
+                    <option [value]="u.id">{{ u.firstName }} {{ u.lastName }} ({{ u.email }})</option>
+                  }
+                </select>
+              </div>
+              <div class="mf-group">
+                <label>SLA (horas)</label>
+                <input [(ngModel)]="editingNode.slaHours" type="number" min="0" placeholder="24"/>
+              </div>
+            }
+
+            <!-- ════ DECISIÓN ════ -->
+            @if (editingNode.type === 'DECISION') {
+              <div class="nd-type-hint nd-type-hint--warn">
+                <span>🔀</span>
+                <p>Este nodo evalúa condiciones y dirige el flujo por distintas ramas. Conecta las flechas salientes y etiquétalas con la condición correspondiente.</p>
+              </div>
+              <div class="mf-group">
+                <label>Pregunta / condición evaluada</label>
+                <textarea [(ngModel)]="editingNode.description" rows="2"
+                          placeholder="Ej: ¿El monto supera el límite aprobado?"></textarea>
+              </div>
+              <div class="mf-group">
+                <label>Rol que evalúa (opcional)</label>
+                <select [(ngModel)]="editingNode.assignedRole">
+                  <option value="">— Automático (motor) —</option>
+                  @for (r of roles; track r) {
+                    <option [value]="r">
+                      {{ r === 'ADMIN' ? '🔑 Administrador' : (r === 'MANAGER' ? '👔 Gerente' : (r === 'OFFICER' ? '🧑‍💼 Oficial' : (r === 'ANALYST' ? '📊 Analista' : r))) }}
+                    </option>
+                  }
+                </select>
+              </div>
+            }
+
+            <!-- ════ PARALELO ════ -->
+            @if (editingNode.type === 'PARALLEL_GATEWAY') {
+              <div class="nd-type-hint">
+                <span>⚡</span>
+                <p>Divide el flujo en ramas paralelas. <strong>Todas</strong> se ejecutan simultáneamente. Usa un nodo <em>Unión</em> para sincronizarlas.</p>
+              </div>
+              <div class="mf-group">
+                <label>Notas técnicas (opcional)</label>
+                <textarea [(ngModel)]="editingNode.description" rows="2"
+                          placeholder="Ej: Divide en revisión legal y financiera de forma simultánea."></textarea>
+              </div>
+            }
+
+            <!-- ════ UNIÓN ════ -->
+            @if (editingNode.type === 'JOIN_GATEWAY') {
+              <div class="nd-type-hint">
+                <span>🔗</span>
+                <p>Sincroniza las ramas paralelas. El proceso continúa sólo cuando <strong>todas las ramas</strong> hayan completado su ejecución.</p>
+              </div>
+              <div class="mf-group">
+                <label>Notas técnicas (opcional)</label>
+                <textarea [(ngModel)]="editingNode.description" rows="2"
+                          placeholder="Ej: Espera revisor legal y financiero."></textarea>
+              </div>
+            }
+
+            <!-- ════ SUB-PROCESO ════ -->
+            @if (editingNode.type === 'SUBPROCESS') {
+              <div class="mf-group">
+                <label>Descripción del sub-proceso</label>
+                <textarea [(ngModel)]="editingNode.description" rows="2"
+                          placeholder="Ej: Inicia el sub-proceso de validación documental."></textarea>
+              </div>
+              <div class="mf-group">
+                <label>Rol coordinador</label>
+                <select [(ngModel)]="editingNode.assignedRole">
+                  <option value="">— Sin asignar —</option>
+                  @for (r of roles; track r) {
+                    <option [value]="r">
+                      {{ r === 'ADMIN' ? '🔑 Administrador' : (r === 'MANAGER' ? '👔 Gerente' : (r === 'OFFICER' ? '🧑‍💼 Oficial' : (r === 'ANALYST' ? '📊 Analista' : r))) }}
+                    </option>
+                  }
+                </select>
+              </div>
+              <div class="mf-group">
+                <label>Usuario responsable <span class="mf-hint">(anula el rol)</span></label>
+                <select [(ngModel)]="editingNode.assignedUserId">
+                  <option value="">— Ninguno (usar rol) —</option>
+                  @for (u of users(); track u.id) {
+                    <option [value]="u.id">{{ u.firstName }} {{ u.lastName }} ({{ u.email }})</option>
+                  }
+                </select>
+              </div>
+              <div class="mf-group">
+                <label>SLA (horas)</label>
+                <input [(ngModel)]="editingNode.slaHours" type="number" min="0" placeholder="24"/>
+              </div>
+            }
+
+              @if (selectedWf()!.status === 'DRAFT') {
+                <div class="mf-actions">
+                  <button class="btn-save" (click)="saveNodeEdit()">
+                    <span class="bt-icon">💾</span> Guardar
+                  </button>
+                  <button class="btn-delete" (click)="deleteNode(selectedWf()!.id, editingNode.id!)">
+                    <span class="bt-icon">🗑️</span>
+                  </button>
+                </div>
+              }
+          </div>
+        </div>
+      }
+
+      <!-- ──── EDGE EDIT PANEL ──── -->
+      @if (showEdgeEdit() && selectedEdge()) {
+        <div class="nd-panel"
+             (click)="$event.stopPropagation()"
+             (mousedown)="$event.stopPropagation()"
+             (mouseup)="$event.stopPropagation()"
+             (pointerdown)="$event.stopPropagation()"
+             (wheel)="$event.stopPropagation()">
+          <div class="nd-header">
+            <span class="nd-type-badge"
+                  style="background: #253a5c22; color: #93c5fd;">
+              ↪️ Conexión (Ruta)
+            </span>
+            <button class="nd-close" (click)="showEdgeEdit.set(false)">✕</button>
           </div>
 
-          <div class="nd-actions">
-            <button class="nd-del"
-                    (click)="deleteNode(selectedWf()!.id, editingNode.id!)">
-              🗑
-            </button>
-            <button class="nd-save" (click)="saveNodeEdit()">
-              💾 Guardar
-            </button>
+          <div class="modal-fields" style="gap:10px">
+            <div class="nd-type-hint">
+              <span>🔀</span>
+              <p>Define la etiqueta y la condición para tomar este camino. Ideal para salidas de un nodo <strong>Decisión</strong> o <strong>Tarea</strong>.</p>
+            </div>
+
+            <div class="mf-group">
+              <label>Etiqueta de la flecha (Visible)</label>
+              <input [(ngModel)]="editingEdge.label" placeholder="Ej: Aprobado, Rechazado, Importe > 1000..."/>
+            </div>
+
+            <div class="mf-group" style="margin-top: 8px;">
+              <label>Condición que activa esta ruta</label>
+              <select [(ngModel)]="editingEdge.condition">
+                <option value="">— Ruta por defecto (Cualquier otro caso) —</option>
+                <option value="APPROVE">🟢 Cuando la Tarea previa es APROBADA</option>
+                <option value="REJECT">🔴 Cuando la Tarea previa es RECHAZADA</option>
+              </select>
+              <p style="font-size: 0.75rem; color: #64748b; margin-top: 6px; line-height: 1.3;">
+                Configura esto al salir de una <strong>Decisión</strong> tras una revisión.
+              </p>
+            </div>
+
+            <div class="modal-footer" style="margin-top: 20px;">
+              @if (selectedWf()!.status === 'DRAFT') {
+                <div class="mf-actions">
+                  <button class="btn-save" (click)="saveEdgeEdit()">
+                    <span class="bt-icon">💾</span> Guardar
+                  </button>
+                  <button class="btn-delete" (click)="deleteEdge(selectedEdge()!.id)">
+                    <span class="bt-icon">🗑️</span>
+                  </button>
+                </div>
+              }
+            </div>
           </div>
         </div>
       }

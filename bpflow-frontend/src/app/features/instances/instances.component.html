@@ -41,8 +41,8 @@
                 <p class="inst-name">{{ inst.workflowName }} <span class="version">v{{ inst.workflowVersion }}</span></p>
               </div>
               <div class="badges">
-                <span class="badge" [class]="statusClass(inst.status)">{{ inst.status }}</span>
-                <span class="badge" [class]="priorityClass(inst.priority)">{{ inst.priority }}</span>
+                <span class="badge" [class]="statusClass(inst.status)">{{ translateStatus(inst.status) }}</span>
+                <span class="badge" [class]="priorityClass(inst.priority)">{{ translatePriority(inst.priority) }}</span>
               </div>
             </div>
 
@@ -99,7 +99,7 @@
               </div>
             </div>
             <div class="task-right">
-              <span class="badge" [class]="taskStatusClass(task.status)">{{ task.status }}</span>
+              <span class="badge" [class]="taskStatusClass(task.status)">{{ translateStatus(task.status) }}</span>
               @if (task.status === 'NEW' || task.status === 'IN_PROGRESS') {
                 <button class="btn-action" (click)="openTaskModal(task)">Gestionar →</button>
               }
@@ -212,7 +212,7 @@
           <p class="modal-sub">
             {{ selectedInst()!.workflowName }} v{{ selectedInst()!.workflowVersion }}
             &nbsp;·&nbsp;
-            <span class="badge" [class]="statusClass(selectedInst()!.status)">{{ selectedInst()!.status }}</span>
+            <span class="badge" [class]="statusClass(selectedInst()!.status)">{{ translateStatus(selectedInst()!.status) }}</span>
           </p>
         </div>
         <div class="flex gap-2">
@@ -238,7 +238,7 @@
               <div class="task-row compact">
                 <div class="task-info">
                   <div class="task-name">{{ t.nodeName }}</div>
-                  <span class="badge" [class]="taskStatusClass(t.status)">{{ t.status }}</span>
+                  <span class="badge" [class]="taskStatusClass(t.status)">{{ translateStatus(t.status) }}</span>
                 </div>
                 <button class="btn-action" (click)="openTaskModal(t); showDetailModal.set(false)">
                   Gestionar →
@@ -262,7 +262,7 @@
               <div class="tl-node">{{ step.nodeName }}</div>
               <div class="tl-action">
                 <span class="action-badge" [class]="'action-' + step.action?.toLowerCase()">
-                  {{ step.action }}
+                  {{ step.action === 'APPROVE' ? 'Aprobado' : (step.action === 'REJECT' ? 'Rechazado' : (step.action === 'STARTED' ? 'Iniciado' : step.action)) }}
                 </span>
                 @if (step.comment) { <span class="tl-comment">— {{ step.comment }}</span> }
               </div>

@@ -277,6 +277,30 @@ export class InstancesComponent implements OnInit {
     return this.tasks().filter(t => t.status === status || t.status === 'IN_PROGRESS');
   }
 
+  translateStatus(status: string): string {
+    const m: Record<string, string> = {
+      RUNNING:   'En Ejecución',
+      COMPLETED: 'Completado',
+      CANCELLED: 'Cancelado',
+      SUSPENDED: 'Suspendido',
+      ERROR:     'Error',
+      NEW:       'Nueva',
+      IN_PROGRESS: 'En Curso',
+      REJECTED:  'Rechazada'
+    };
+    return m[status] ?? status;
+  }
+
+  translatePriority(p: string): string {
+    const m: Record<string, string> = {
+      LOW: 'Baja',
+      NORMAL: 'Normal',
+      HIGH: 'Alta',
+      CRITICAL: 'Crítica'
+    };
+    return m[p] ?? p;
+  }
+
   formatDate(d?: string): string {
     if (!d) return '—';
     return new Date(d).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });

@@ -81,7 +81,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/workflows/**").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers(HttpMethod.DELETE, "/api/workflows/**").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers("/api/fraud/**").hasAnyRole("ADMIN", "MANAGER")
-                        .requestMatchers("/api/analytics/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/analytics/**").hasAnyRole("ADMIN", "MANAGER", "OFFICER")
                         // Everything else requires authentication
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);

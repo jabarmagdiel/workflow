@@ -2,6 +2,41 @@
   display: block;
   height: 100%;
   padding: 2rem;
-  overflow-y: auto;
+  overflow: hidden;
   box-sizing: border-box;
+}
+
+/* Semáforo de estados */
+.task-card {
+  position: relative;
+  overflow: hidden;
+  padding-left: 1.25rem !important; /* Espacio para el indicador */
+}
+
+.status-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+}
+
+.status-indicator.NEW { 
+  background: #ff4d4d; 
+  box-shadow: 2px 0 15px rgba(255, 77, 77, 0.4);
+}
+
+.status-indicator.IN_PROGRESS { 
+  background: #ffcc00; 
+  box-shadow: 2px 0 15px rgba(255, 204, 0, 0.4);
+}
+
+.status-indicator.COMPLETED { 
+  background: #00ff88; 
+  box-shadow: 2px 0 15px rgba(0, 255, 136, 0.4);
+}
+
+.status-indicator.REJECTED { 
+  background: #94a3b8; 
 }

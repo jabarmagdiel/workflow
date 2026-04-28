@@ -16,7 +16,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/analytics")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+@PreAuthorize("hasAnyRole('ADMIN','MANAGER','OFFICER')")
 public class AnalyticsController {
 
         private final WorkflowRepository workflowRepository;

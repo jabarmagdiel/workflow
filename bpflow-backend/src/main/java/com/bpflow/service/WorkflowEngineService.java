@@ -154,7 +154,6 @@ public class WorkflowEngineService {
 
             for (WorkflowNode nextNode : nextNodes) {
                 if (nextNode.getType() == WorkflowNode.NodeType.END || nextNode.isEndNode()) {
-                    // Check if all parallel branches done
                     if (remainingActive.isEmpty()) {
                         completeInstance(instance, userId);
                         return instanceRepository.save(instance);
@@ -165,12 +164,18 @@ public class WorkflowEngineService {
                             .stream().map(WorkflowNode::getId).toList());
                 } else if (nextNode.getType() == WorkflowNode.NodeType.JOIN_GATEWAY) {
                     if (remainingActive.isEmpty()) {
-                        // All branches joined — continue after join
                         List<WorkflowNode> afterJoin = getNextNodes(wf, nextNode.getId());
                         for (WorkflowNode n : afterJoin) {
                             createTask(wf, instance, n, userId);
                             newActiveNodes.add(n.getId());
                         }
+                    }
+                } else if (nextNode.getType() == WorkflowNode.NodeType.DECISION) {
+                    // Atraviesa el gateway de decisión y busca el siguiente nodo real basado en la acción anterior
+                    List<WorkflowNode> nodesAfterGateway = resolveNextNodes(wf, nextNode.getId(), action, instance.getVariables());
+                    for (WorkflowNode realNextNode : nodesAfterGateway) {
+                        createTask(wf, instance, realNextNode, userId);
+                        newActiveNodes.add(realNextNode.getId());
                     }
                 } else {
                     createTask(wf, instance, nextNode, userId);
@@ -359,11 +364,15 @@ public class WorkflowEngineService {
     }
 
     private boolean evaluateCondition(String condition, String action, Map<String, Object> variables) {
-        // Simple evaluator (production: use SpEL or rule engine)
-        if (condition.equalsIgnoreCase("approved") || condition.equalsIgnoreCase("APPROVE")) {
+        // Simple evaluator bilingüe
+        if (condition.equalsIgnoreCase("approved") || 
+            condition.equalsIgnoreCase("APPROVE") || 
+            condition.equalsIgnoreCase("Aprobado")) {
             return "APPROVE".equals(action);
         }
-        if (condition.equalsIgnoreCase("rejected") || condition.equalsIgnoreCase("REJECT")) {
+        if (condition.equalsIgnoreCase("rejected") || 
+            condition.equalsIgnoreCase("REJECT") || 
+            condition.equalsIgnoreCase("Rechazado")) {
             return "REJECT".equals(action);
         }
         // Variable-based: "status == approved"

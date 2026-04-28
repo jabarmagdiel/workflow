@@ -87,8 +87,28 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void createTaskForInstance(WorkflowInstance instance, User user, int i) {
+        List<Task.Attachment> attachments = List.of(
+            Task.Attachment.builder()
+                .fileName("Documento_Identidad.pdf")
+                .fileType("application/pdf")
+                .fileUrl("https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf")
+                .fileSize(102400)
+                .uploadedBy("Sistema")
+                .uploadedAt(LocalDateTime.now().minusDays(1))
+                .build(),
+            Task.Attachment.builder()
+                .fileName("Formulario_Solicitud.jpg")
+                .fileType("image/jpeg")
+                .fileUrl("https://placehold.co/600x400/0b1628/white?text=BPFlow+Doc+Preview")
+                .fileSize(204800)
+                .uploadedBy("Sistema")
+                .uploadedAt(LocalDateTime.now().minusDays(1))
+                .build()
+        );
+
         Task task = Task.builder()
                 .instanceId(instance.getId())
+                .workflowId(instance.getWorkflowId())
                 .workflowName(instance.getWorkflowName())
                 .title("Revisión de Documentación " + instance.getReferenceNumber())
                 .description("Por favor, valide que los archivos adjuntos cumplan con la normativa vigente.")
@@ -96,6 +116,7 @@ public class DataInitializer implements CommandLineRunner {
                 .assignedRole(user.getRoles().iterator().next())
                 .status(Task.TaskStatus.NEW)
                 .priority(i % 3 == 0 ? Task.Priority.HIGH : Task.Priority.NORMAL)
+                .attachments(attachments)
                 .createdAt(LocalDateTime.now().minusHours(i * 2))
                 .dueAt(LocalDateTime.now().plusDays(2))
                 .build();

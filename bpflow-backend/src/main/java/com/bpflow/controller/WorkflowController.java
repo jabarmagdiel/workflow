@@ -142,7 +142,9 @@ public class WorkflowController {
         return workflowRepository.findById(id).map(wf -> {
             wf.getNodes().stream().filter(n -> n.getId().equals(nodeId)).findFirst().ifPresent(n -> {
                 if (patch.getLabel()        != null) n.setLabel(patch.getLabel());
-                if (patch.getAssignedRole() != null) n.setAssignedRole(patch.getAssignedRole());
+                if (patch.getDescription()  != null) n.setDescription(patch.getDescription().isEmpty() ? null : patch.getDescription());
+                if (patch.getAssignedRole() != null) n.setAssignedRole(patch.getAssignedRole().isEmpty() ? null : patch.getAssignedRole());
+                if (patch.getAssignedUserId() != null) n.setAssignedUserId(patch.getAssignedUserId().isEmpty() ? null : patch.getAssignedUserId());
                 if (patch.getSlaHours()     != null) n.setSlaHours(patch.getSlaHours());
                 if (patch.getX()            != 0)    n.setX(patch.getX());
                 if (patch.getY()            != 0)    n.setY(patch.getY());
@@ -170,6 +172,23 @@ public class WorkflowController {
             @PathVariable String edgeId) {
         return workflowRepository.findById(id).map(wf -> {
             wf.getEdges().removeIf(e -> e.getId().equals(edgeId));
+            return ResponseEntity.ok(workflowRepository.save(wf));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PatchMapping("/{id}/edges/{edgeId}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public ResponseEntity<Workflow> updateEdge(@PathVariable String id,
+            @PathVariable String edgeId,
+            @RequestBody com.bpflow.model.WorkflowEdge patch) {
+        return workflowRepository.findById(id).map(wf -> {
+            wf.getEdges().stream()
+                .filter(e -> e.getId().equals(edgeId))
+                .findFirst()
+                .ifPresent(e -> {
+                    if (patch.getLabel() != null) e.setLabel(patch.getLabel());
+                    if (patch.getCondition() != null) e.setCondition(patch.getCondition());
+                });
             return ResponseEntity.ok(workflowRepository.save(wf));
         }).orElse(ResponseEntity.notFound().build());
     }

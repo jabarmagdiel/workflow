@@ -31,6 +31,9 @@ public class WorkflowNode {
     // SLA
     private Integer slaHours;
 
+    // Description / instructions for the node
+    private String description;
+
     // Conditional rules: [{field, operator, value, targetNodeId}]
     @Builder.Default
     private List<Map<String, Object>> conditions = new ArrayList<>();

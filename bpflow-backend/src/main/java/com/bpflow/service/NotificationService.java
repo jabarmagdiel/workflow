@@ -22,13 +22,20 @@ public class NotificationService {
     private final com.bpflow.repository.UserRepository userRepository;
 
     private void sendToUser(String userId, Notification n) {
-        wsHandler.sendToUser(userId, n);
-        
-        userRepository.findById(userId).ifPresent(user -> {
-            if (user.getFcmToken() != null) {
-                fcmService.sendPushNotification(user.getFcmToken(), n.getTitle(), n.getMessage());
-            }
-        });
+        try {
+            wsHandler.sendToUser(userId, n);
+        } catch (Exception e) {
+            log.warn("WebSocket notification failed for user {}: {}", userId, e.getMessage());
+        }
+        try {
+            userRepository.findById(userId).ifPresent(user -> {
+                if (user.getFcmToken() != null) {
+                    fcmService.sendPushNotification(user.getFcmToken(), n.getTitle(), n.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            log.warn("FCM push notification failed for user {}: {}", userId, e.getMessage());
+        }
     }
 
     public void notifyTaskAssigned(Task task, String recipientId) {
@@ -89,11 +96,15 @@ public class NotificationService {
     }
 
     public void broadcastEvent(String eventType, Object data) {
-        wsHandler.broadcast(Map.of(
-            "event", eventType,
-            "data", data,
-            "timestamp", LocalDateTime.now()
-        ));
+        try {
+            wsHandler.broadcast(Map.of(
+                "event", eventType,
+                "data", data,
+                "timestamp", LocalDateTime.now()
+            ));
+        } catch (Exception e) {
+            log.warn("WebSocket broadcast failed for event {}: {}", eventType, e.getMessage());
+        }
     }
 
     public void sendPasswordResetEmail(String email, String token) {

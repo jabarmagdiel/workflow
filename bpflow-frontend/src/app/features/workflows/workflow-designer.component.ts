@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { VoiceService, VoiceCommand } from '../../core/services/voice.service';
 import { Subscription } from 'rxjs';
+import { UserService, User } from '../../core/services/user.service';
 
 /* ─── Interfaces ───────────────────────────────────────────── */
 interface WorkflowEdge {
@@ -21,6 +22,7 @@ interface WorkflowNode {
   type: 'START' | 'END' | 'TASK' | 'DECISION' | 'PARALLEL_GATEWAY' | 'JOIN_GATEWAY' | 'SUBPROCESS';
   assignedRole?: string;
   assignedUserId?: string;
+  description?: string;
   slaHours?: number;
   startNode: boolean;
   endNode: boolean;
@@ -62,6 +64,7 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   private http   = inject(HttpClient);
   private zone   = inject(NgZone);
   public voiceService = inject(VoiceService);
+  private userService = inject(UserService);
 
   private voiceSub: Subscription | null = null;
 
@@ -74,6 +77,7 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   addingNode   = signal(false);
   addingEdge   = signal(false);
   publishing   = signal(false);
+  users        = signal<User[]>([]);
 
   /* ── Canvas transform ─────────────────────────────── */
   tx    = signal(80);
@@ -104,12 +108,15 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   showCreateModal  = signal(false);
   showAddEdgeModal = signal(false);
   showNodeEdit     = signal(false);
+  showEdgeEdit     = signal(false);
+  selectedEdge     = signal<WorkflowEdge | null>(null);
 
   /* ── Form models ──────────────────────────────────── */
   readonly roles = ['ADMIN', 'MANAGER', 'OFFICER', 'ANALYST'];
   newWf   = { name: '', description: '', category: '', defaultSlaHours: 48 };
   newEdge = { sourceNodeId: '', targetNodeId: '', label: '', condition: '' };
   editingNode: Partial<WorkflowNode> = {};
+  editingEdge: Partial<WorkflowEdge> = {};
 
   /* ── Palette items ────────────────────────────────── */
   palette: PaletteItem[] = [
@@ -124,6 +131,7 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
 
   ngOnInit() { 
     this.loadWorkflows(); 
+    this.loadUsers();
     this.voiceSub = this.voiceService.commandBus$.subscribe(command => {
       this.zone.run(() => this.handleAICommand(command));
     });
@@ -180,6 +188,16 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
       next:  d  => { this.workflows.set(d); this.loading.set(false); },
       error: () => this.loading.set(false)
     });
+  }
+
+  loadUsers() {
+    this.userService.getUsers().subscribe(u => this.users.set(u));
+  }
+
+  getUserName(id?: string): string {
+    if (!id) return '';
+    const u = this.users().find(u => u.id === id);
+    return u ? `${u.firstName} ${u.lastName}` : 'ID: ' + id;
   }
 
   selectWorkflow(wf: Workflow) {
@@ -316,7 +334,12 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   }
 
   openNodeEdit(node: WorkflowNode) {
-    this.editingNode = { ...node };
+    this.editingNode = { 
+      ...node, 
+      assignedRole: node.assignedRole || '', 
+      assignedUserId: node.assignedUserId || '',
+      description: node.description || ''
+    };
     this.showNodeEdit.set(true);
     this.selectedNode.set(node);
   }
@@ -514,10 +537,37 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   clearSelection() {
     this.selectedNode.set(null);
     this.showNodeEdit.set(false);
-    if (!this.edgeDrawing()) {
-      this.edgeSrcNode = null;
-      this.edgePreviewEnd = null;
+    this.selectedEdge.set(null);
+    this.showEdgeEdit.set(false);
+  }
+
+  openEdgeEdit(edge: WorkflowEdge, e?: Event) {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
     }
+    const wf = this.selectedWf();
+    if (!wf || wf.status !== 'DRAFT') return;
+    
+    this.clearSelection();
+    this.selectedEdge.set(edge);
+    this.editingEdge = { ...edge, label: edge.label || '', condition: edge.condition || '' };
+    this.showEdgeEdit.set(true);
+  }
+
+  saveEdgeEdit() {
+    const wf = this.selectedWf();
+    if (!wf || !this.editingEdge.id) return;
+    this.http.patch<Workflow>(`/api/workflows/${wf.id}/edges/${this.editingEdge.id}`,
+      this.editingEdge).subscribe({
+      next: u => {
+        this.selectedWf.set(u);
+        this.workflows.update(l => l.map(w => w.id === u.id ? u : w));
+        this.showEdgeEdit.set(false);
+        const updated = u.edges.find(e => e.id === this.editingEdge.id);
+        if (updated) this.selectedEdge.set(updated);
+      }
+    });
   }
 
   openCreateModal() {

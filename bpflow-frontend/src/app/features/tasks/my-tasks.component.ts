@@ -5,6 +5,15 @@ import { FormsModule } from '@angular/forms';
 import { NotificationService } from '../../core/services/notification.service';
 import { Subscription } from 'rxjs';
 
+interface Attachment {
+  fileName: string;
+  fileType: string;
+  fileUrl: string;
+  fileSize: number;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
 interface Task {
   id: string;
   instanceId: string;
@@ -25,6 +34,7 @@ interface Task {
   comment?: string;
   overdue: boolean;
   slaBreached: boolean;
+  attachments?: Attachment[];
 }
 
 @Component({
@@ -117,6 +127,28 @@ export class MyTasksComponent implements OnInit, OnDestroy {
       },
       error: () => this.processing.set(false)
     });
+  }
+
+  translateStatus(s: string): string {
+    const map: Record<string, string> = {
+      NEW: 'Nueva',
+      IN_PROGRESS: 'En Curso',
+      COMPLETED: 'Completada',
+      REJECTED: 'Rechazada',
+      CANCELLED: 'Cancelada',
+      DELEGATED: 'Delegada'
+    };
+    return map[s] || s;
+  }
+
+  translatePriority(p: string): string {
+    const map: Record<string, string> = {
+      LOW: 'Baja',
+      NORMAL: 'Normal',
+      HIGH: 'Alta',
+      CRITICAL: 'Crítica'
+    };
+    return map[p] || p;
   }
 
   priorityClass(p: string): string {

@@ -68,4 +68,15 @@ export class AuthService {
     hasRole(role: string): boolean {
         return this.currentUser()?.roles.includes(role) || false;
     }
+
+    translateRole(role?: string): string {
+        if (!role) return '';
+        const map: Record<string, string> = {
+            ADMIN: 'Administrador',
+            MANAGER: 'Gerente',
+            OFFICER: 'Oficial',
+            ANALYST: 'Analista'
+        };
+        return map[role] || role;
+    }
 }
