@@ -122,4 +122,25 @@ class ApiService {
     } catch (_) {}
     return null;
   }
+
+  // ─── UPLOAD ATTACHMENT ───────────────────────────────────────────
+  Future<bool> uploadTaskAttachment(String taskId, String filePath) async {
+    final token = await storage.read(key: 'jwt');
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse("$baseUrl/tasks/$taskId/attachments"),
+      );
+      request.headers["Authorization"] = "Bearer $token";
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+      var streamedResponse = await request.send().timeout(const Duration(seconds: 45));
+      var response = await http.Response.fromStream(streamedResponse);
+
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Error uploading file: $e");
+      return false;
+    }
+  }
 }

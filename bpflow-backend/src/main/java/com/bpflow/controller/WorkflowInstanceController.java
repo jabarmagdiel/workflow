@@ -50,7 +50,14 @@ public class WorkflowInstanceController {
 
     @GetMapping("/my")
     public ResponseEntity<List<WorkflowInstance>> getMyInstances(@AuthenticationPrincipal String userId) {
-        return ResponseEntity.ok(instanceRepository.findByInitiatedBy(userId));
+        // Find instances where user is initiator OR designated client
+        List<com.bpflow.model.WorkflowInstance> initiatedByMe = instanceRepository.findByInitiatedBy(userId);
+        List<com.bpflow.model.WorkflowInstance> forMeAsClient = instanceRepository.findByClientId(userId);
+        
+        java.util.Set<com.bpflow.model.WorkflowInstance> allMyInstances = new java.util.HashSet<>(initiatedByMe);
+        allMyInstances.addAll(forMeAsClient);
+        
+        return ResponseEntity.ok(new java.util.ArrayList<>(allMyInstances));
     }
 
     @GetMapping("/active")

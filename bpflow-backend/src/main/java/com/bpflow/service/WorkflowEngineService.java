@@ -169,13 +169,11 @@ public class WorkflowEngineService {
 
             for (WorkflowNode nextNode : nextNodes) {
                 if (nextNode.getType() == WorkflowNode.NodeType.END || nextNode.isEndNode()) {
-                    if (remainingActive.isEmpty()) {
-                        instance.setCurrentNodeId(nextNode.getId());
-                        instance.setCurrentNodeName(nextNode.getLabel());
-                        completeInstance(instance, userId);
-                        instanceRepository.save(instance);
-                        break;
-                    }
+                    instance.setCurrentNodeId(nextNode.getId());
+                    instance.setCurrentNodeName("Finalizado");
+                    completeInstance(instance, userId);
+                    instanceRepository.save(instance);
+                    break;
                 } else if (nextNode.getType() == WorkflowNode.NodeType.PARALLEL_GATEWAY) {
                     createParallelTasks(wf, instance, nextNode, userId);
                     newActiveNodes.addAll(getNextNodes(wf, nextNode.getId())

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:file_picker/file_picker.dart';
 import '../services/api_service.dart';
 
 class ProcessDetailScreen extends StatefulWidget {
@@ -27,6 +28,48 @@ class _ProcessDetailScreenState extends State<ProcessDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Error al descargar el reporte PDF")),
       );
+    }
+  }
+
+  bool _isUploading = false;
+  void _uploadDocument() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
+    );
+
+    if (result != null && mounted) {
+      setState(() => _isUploading = true);
+      try {
+        final tasks = await _apiService.getMyTasks();
+        final task = tasks.firstWhere(
+          (t) => t['instanceId'] == widget.instance['id'],
+          orElse: () => null,
+        );
+
+        if (task != null) {
+          final success = await _apiService.uploadTaskAttachment(task['id'], result.files.single.path!);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(success ? "Documento subido con éxito" : "Error al subir documento")),
+            );
+          }
+        } else {
+           if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+               const SnackBar(content: Text("No hay tareas activas disponibles para subir")),
+             );
+           }
+        }
+      } catch (e) {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(content: Text("Error: $e")),
+           );
+        }
+      } finally {
+        if (mounted) setState(() => _isUploading = false);
+      }
     }
   }
 
@@ -80,21 +123,38 @@ class _ProcessDetailScreenState extends State<ProcessDetailScreen> {
                     style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      onPressed: _isDownloading ? null : _downloadPdf,
-                      icon: _isDownloading 
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.indigo))
-                        : const Icon(Icons.picture_as_pdf),
-                      label: Text(_isDownloading ? "Descargando..." : "Descargar Reporte Audit"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.indigo,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isDownloading ? null : _downloadPdf,
+                          icon: _isDownloading 
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.indigo))
+                            : const Icon(Icons.picture_as_pdf),
+                          label: Text(_isDownloading ? "..." : "Rep. PDF"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.indigo,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isUploading ? null : _uploadDocument,
+                          icon: _isUploading
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.upload_file),
+                          label: Text(_isUploading ? "..." : "Subir"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
                   )
                 ],
               ),
