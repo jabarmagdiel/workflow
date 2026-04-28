@@ -156,6 +156,17 @@
               </div>
 
               <div class="flex gap-3">
+                <!-- File Upload -->
+                <div class="flex-1">
+                  <input type="file" #fileInput class="hidden" (change)="onFileSelected($event)">
+                  <button (click)="fileInput.click()" [disabled]="processing()"
+                    class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 font-bold rounded-xl border border-slate-700 border-dashed transition-all">
+                    📎 SUBIR DOCUMENTO
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex gap-3">
                 <button (click)="decide('REJECT')" [disabled]="processing()"
                   class="flex-1 py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white font-black rounded-xl transition-all active:scale-95">
                   ✕ RECHAZAR

@@ -129,6 +129,29 @@ export class MyTasksComponent implements OnInit, OnDestroy {
     });
   }
 
+  onFileSelected(event: any) {
+    const file: File = event.target.files[0];
+    const task = this.selectedTask();
+    if (!file || !task) return;
+
+    this.processing.set(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.http.post<Task>(`/api/tasks/${task.id}/attachments`, formData).subscribe({
+      next: (updated) => {
+        this.processing.set(false);
+        this.selectedTask.set(updated);
+        this.tasks.update(list => list.map(t => t.id === updated.id ? updated : t));
+        alert('Archivo subido con éxito');
+      },
+      error: (err) => {
+        this.processing.set(false);
+        alert('Error al subir archivo: ' + (err.error?.message || err.message));
+      }
+    });
+  }
+
   translateStatus(s: string): string {
     const map: Record<string, string> = {
       NEW: 'Nueva',
