@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import 'package:intl/intl.dart';
+import '../services/push_notification_service.dart';
 import 'process_detail_screen.dart';
 
 class ProcessTrackerScreen extends StatefulWidget {
@@ -56,10 +57,21 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
         elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.notifications_active_outlined, color: Colors.amberAccent),
+            tooltip: "Probar Notificación",
+            onPressed: () {
+              PushNotificationService.showLocalNotification(
+                title: "BPFlow: Prueba de Sonido",
+                body: "¡Las notificaciones están funcionando correctamente! 🚀"
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _fetchInstances,
           ),
           IconButton(
+...
             icon: const Icon(Icons.logout, color: Colors.white70),
             onPressed: () {
               Provider.of<AuthProvider>(context, listen: false).logout();
