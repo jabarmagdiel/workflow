@@ -199,7 +199,7 @@ export class VoiceService {
       seis:6, '6':6, siete:7, '7':7,
       ocho:8, '8':8, nueve:9, '9':9, diez:10, '10':10
     };
-    return map[w] ?? parseInt(w, 10) || 1;
+    return map[w] ?? (parseInt(w, 10) || 1);
   }
 
   private labelToNodeType(label: string): string {
