@@ -48,25 +48,6 @@ public class TaskController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/files/{filename:.+}")
-    @ResponseBody
-    public ResponseEntity<org.springframework.core.io.Resource> serveFile(@PathVariable String filename) {
-        try {
-            java.nio.file.Path file = java.nio.file.Paths.get("uploads").resolve(filename);
-            org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(file.toUri());
-            if (resource.exists() || resource.isReadable()) {
-                return ResponseEntity.ok()
-                        .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-                        .contentType(org.springframework.http.MediaType.parseMediaType(java.nio.file.Files.probeContentType(file)))
-                        .body(resource);
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-
     @GetMapping("/by-instance/{instanceId}")
     public ResponseEntity<List<Task>> getByInstance(@PathVariable String instanceId) {
         return ResponseEntity.ok(taskRepository.findByInstanceId(instanceId));
