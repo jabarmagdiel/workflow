@@ -20,6 +20,8 @@ services:
       CORS_ALLOWED_ORIGINS: http://localhost:4200,http://frontend:4200
     ports:
       - "8080:8080"
+    volumes:
+      - ./bpflow-backend/uploads:/app/uploads
     networks:
       - bpflow-network
 
