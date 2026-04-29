@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:file_picker/file_picker.dart' as fp;
 import '../services/api_service.dart';
 
 class ProcessDetailScreen extends StatefulWidget {
@@ -34,8 +34,8 @@ class _ProcessDetailScreenState extends State<ProcessDetailScreen> {
   bool _isUploading = false;
   void _uploadDocument() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
+      fp.FilePickerResult? result = await fp.FilePicker.pickFiles(
+        type: fp.FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'png', 'jpeg'],
       );
 
@@ -55,21 +55,21 @@ class _ProcessDetailScreenState extends State<ProcessDetailScreen> {
             );
           }
         } else {
-           if (mounted) {
-             ScaffoldMessenger.of(context).showSnackBar(
-               const SnackBar(content: Text("No hay tareas activas disponibles para subir")),
-             );
-           }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("No hay tareas activas disponibles para subir")),
+            );
+          }
         }
-      } catch (e) {
-        if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text("Error: $e")),
-           );
-        }
-      } finally {
-        if (mounted) setState(() => _isUploading = false);
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 

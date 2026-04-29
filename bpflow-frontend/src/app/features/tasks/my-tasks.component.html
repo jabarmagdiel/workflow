@@ -1,201 +1,265 @@
-<div class="h-full flex flex-col gap-6">
-  <!-- Voice overlay when listening -->
-  @if (voiceListening()) {
-    <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-5"
-         (click)="stopVoice()">
-      <div class="text-5xl animate-bounce">🎤</div>
-      <p class="text-xl font-bold text-red-400">Escuchando...</p>
-      @if (voiceText()) {
-        <p class="text-2xl font-black text-white px-6 py-3 bg-slate-800/80 rounded-2xl border border-slate-700">
-          {{ voiceText() }}
-        </p>
-      }
-      <p class="text-slate-500 text-sm text-center max-w-md">
-        "Aprobar" · "Rechazar" · "Seleccionar tarea 1" · "Mostrar nuevas" · "Recargar"
-      </p>
-      <p class="text-slate-700 text-xs mt-2">Haz clic en cualquier lugar para cancelar</p>
-    </div>
-  }
+<!-- ════════════════════════════════════════════════════════════
+     VOICE OVERLAY — Full-screen, professional
+     ════════════════════════════════════════════════════════════ -->
+@if (voiceService.isListening()) {
+  <div class="voice-overlay" (click)="voiceService.stopListening()">
 
-  <!-- Header -->
-  <div class="flex items-center justify-between flex-shrink-0">
-    <div>
-      <h2 class="text-3xl font-bold text-white">Bandeja de Trabajo</h2>
-      <p class="text-slate-400 mt-1">Tareas asignadas a tu perfil en el motor de procesos</p>
+    <!-- Animated rings -->
+    <div class="voice-rings">
+      <div class="vr vr1"></div>
+      <div class="vr vr2"></div>
+      <div class="vr vr3"></div>
     </div>
-    <div class="flex items-center gap-3 text-sm">
-      <button (click)="toggleVoice()"
-              [class.bg-red-600]="voiceListening()"
-              [class.hover:bg-red-500]="voiceListening()"
-              [class.animate-pulse]="voiceListening()"
-              class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-semibold transition-all">
-        🎤 {{ voiceListening() ? 'Escuchando...' : 'Comando de Voz' }}
-      </button>
-      <span class="px-3 py-1.5 bg-amber-950 text-amber-400 rounded-lg font-bold border border-amber-900">
-        {{ tasksByStatus('NEW').length }} pendientes
-      </span>
+
+    <!-- Mic icon + status -->
+    <div class="voice-core">
+      <div class="voice-mic-btn listening">🎤</div>
+      <p class="voice-status">Escuchando...</p>
+
+      <!-- Live transcript -->
+      @if (voiceService.lastTranscript()) {
+        <div class="voice-transcript">
+          <span class="tdot">◉</span> {{ voiceService.lastTranscript() }}
+        </div>
+      }
+
+      <!-- Command chips -->
+      <div class="voice-chips">
+        @for (cmd of COMMANDS; track cmd.label) {
+          <div class="vchip">
+            <span class="vchip-key">{{ cmd.keys[0] }}</span>
+            <span class="vchip-label">{{ cmd.label }}</span>
+          </div>
+        }
+      </div>
+
+      <p class="voice-close-hint">Haz clic en cualquier lugar para cerrar</p>
     </div>
   </div>
+}
 
-  <!-- Filter Tabs -->
-  <div class="flex gap-2 flex-shrink-0">
+<!-- ══════ VOICE FEEDBACK TOAST ══════ -->
+@if (voiceFeedback()) {
+  <div class="voice-feedback-toast">{{ voiceFeedback() }}</div>
+}
+
+<!-- ════════════════════════════════════════════════════════════
+     MAIN LAYOUT
+     ════════════════════════════════════════════════════════════ -->
+<div class="tasks-root">
+
+  <!-- ── HEADER ─────────────────────────────────────────── -->
+  <header class="tasks-header">
+    <div class="tasks-header-left">
+      <h1 class="tasks-title">Bandeja de Trabajo</h1>
+      <p class="tasks-subtitle">Tareas asignadas a tu perfil en el motor de procesos</p>
+    </div>
+
+    <div class="tasks-header-right">
+      <!-- Voice button -->
+      <button class="voice-btn" [class.voice-btn--on]="voiceService.isListening()"
+              (click)="voiceService.toggleListening()"
+              [title]="voiceService.isListening() ? 'Detener voz (Alt+V)' : 'Activar voz (Alt+V)'">
+        <span class="voice-btn-icon">🎤</span>
+        <span class="voice-btn-text">{{ voiceService.isListening() ? 'Escuchando…' : 'Voz' }}</span>
+        @if (voiceService.isListening()) {
+          <span class="voice-dot"></span>
+        }
+      </button>
+
+      <!-- Pending badge -->
+      <div class="pending-badge">
+        <span class="pending-count">{{ tasksByStatus('NEW').length }}</span>
+        <span class="pending-label">pendientes</span>
+      </div>
+
+      <!-- Refresh -->
+      <button class="icon-btn" (click)="loadTasks()" title="Actualizar">⟳</button>
+    </div>
+  </header>
+
+  <!-- ── TABS ───────────────────────────────────────────── -->
+  <nav class="tasks-tabs">
     @for (tab of tabs; track tab.key) {
-      <button (click)="activeFilter.set(tab.key)"
-        [class.bg-cyan-600]="activeFilter() === tab.key"
-        [class.text-white]="activeFilter() === tab.key"
-        class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-slate-800 border border-slate-700 text-slate-400 transition-all hover:text-white">
-        {{ tab.label }}
-        <span class="ml-1.5 text-xs opacity-70">({{ tasksByStatus(tab.key).length }})</span>
+      <button class="tab-btn" [class.tab-btn--active]="activeFilter() === tab.key"
+              (click)="activeFilter.set(tab.key)">
+        <span class="tab-icon">{{ tab.icon }}</span>
+        <span class="tab-label">{{ tab.label }}</span>
+        <span class="tab-count" [class.tab-count--active]="activeFilter() === tab.key">
+          {{ tasksByStatus(tab.key).length }}
+        </span>
       </button>
     }
-  </div>
+  </nav>
 
-  <!-- Main Content: split -->
-  <div class="flex gap-6 flex-1 min-h-0 overflow-hidden">
-    <!-- Task List -->
-    <div class="w-80 flex-shrink-0 flex flex-col gap-3 overflow-y-auto pr-2">
-      @for (task of filteredTasks(); track task.id) {
-        <div (click)="selectTask(task)"
-             [class.border-cyan-500]="selectedTask()?.id === task.id"
-             class="task-card flex-shrink-0 p-4 bg-slate-900 border border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-800/80 transition-all group">
-          <div class="status-indicator" [ngClass]="task.status"></div>
-          <div class="flex justify-between items-start mb-2">
-            <span [class]="priorityClass(task.priority)" class="text-[9px] px-2 py-0.5 rounded font-black uppercase">
-              {{ translatePriority(task.priority) }}
-            </span>
-            @if (task.overdue) {
-              <span class="text-[9px] px-2 py-0.5 bg-red-950 text-red-400 rounded font-black">VENCIDA</span>
-            }
+  <!-- ── BODY: Two-panel ───────────────────────────────── -->
+  <div class="tasks-body">
+
+    <!-- LEFT: task list -->
+    <aside class="tasks-list">
+      @for (task of filteredTasks(); track task.id; let i = $index) {
+        <div class="task-card" [class.task-card--selected]="selectedTask()?.id === task.id"
+             (click)="selectTask(task)">
+          <!-- Status bar -->
+          <div class="task-bar" [class]="'task-bar--' + task.status"></div>
+
+          <!-- Number badge -->
+          <span class="task-num">#{{ i + 1 }}</span>
+
+          <div class="task-content">
+            <div class="task-top">
+              <span class="priority-badge" [class]="priorityClass(task.priority)">
+                {{ priorityIcon(task.priority) }} {{ translatePriority(task.priority) }}
+              </span>
+              @if (task.overdue) { <span class="overdue-badge">⚠ VENCIDA</span> }
+            </div>
+            <h3 class="task-title">{{ task.title }}</h3>
+            <p class="task-wf">{{ task.workflowName }}</p>
+            <p class="task-due">📅 {{ task.dueAt | date:'dd/MM/yyyy HH:mm' }}</p>
           </div>
-          <h3 class="font-bold text-white text-sm group-hover:text-cyan-400 transition-colors leading-tight">{{ task.title }}</h3>
-          <p class="text-xs text-slate-500 mt-1">{{ task.workflowName }}</p>
-          <p class="text-xs text-slate-600 mt-2">📅 {{ task.dueAt | date:'dd/MM/yyyy HH:mm' }}</p>
+
+          <!-- Quick actions -->
+          @if (selectedTask()?.id === task.id && (task.status === 'NEW' || task.status === 'IN_PROGRESS')) {
+            <div class="task-quick">
+              <button class="qbtn qbtn--approve" (click)="decide('APPROVE'); $event.stopPropagation()">✓</button>
+              <button class="qbtn qbtn--reject"  (click)="decide('REJECT');  $event.stopPropagation()">✕</button>
+            </div>
+          }
         </div>
       } @empty {
-        <div class="text-center py-12 text-slate-600">
-          <p class="text-3xl mb-2">📭</p>
-          <p class="text-sm">No hay tareas en esta sección</p>
+        <div class="tasks-empty">
+          <span class="tasks-empty-icon">📭</span>
+          <p>No hay tareas en esta sección</p>
+          <p class="tasks-empty-hint">Di "recargar" o pulsa ⟳</p>
         </div>
       }
-    </div>
+    </aside>
 
-    <!-- Task Detail / Action Panel -->
-    <div class="flex-1 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col">
-      @if (selectedTask()) {
-        <div class="flex-1 overflow-y-auto p-8 space-y-6">
-          <!-- Title -->
+    <!-- RIGHT: task detail -->
+    <section class="task-detail">
+      @if (selectedTask(); as task) {
+
+        <!-- Detail header -->
+        <div class="detail-header">
           <div>
-            <div class="flex items-center gap-3 mb-2">
-              <span [class]="priorityClass(selectedTask()!.priority)" class="text-[9px] px-2 py-0.5 rounded font-black uppercase">
-                {{ translatePriority(selectedTask()!.priority) }}
+            <div class="detail-badges">
+              <span class="priority-badge" [class]="priorityClass(task.priority)">
+                {{ priorityIcon(task.priority) }} {{ translatePriority(task.priority) }}
               </span>
-              <span class="text-xs text-slate-500 font-mono">{{ translateStatus(selectedTask()!.status) }}</span>
+              <span class="status-txt">{{ translateStatus(task.status) }}</span>
             </div>
-            <h2 class="text-2xl font-black text-white">{{ selectedTask()!.title }}</h2>
-            <p class="text-slate-400 mt-3 leading-relaxed">{{ selectedTask()!.description }}</p>
+            <h2 class="detail-title">{{ task.title }}</h2>
           </div>
+          <button class="detail-close" (click)="selectedTask.set(null)">✕</button>
+        </div>
 
-          <!-- Meta Info -->
-          <div class="grid grid-cols-2 gap-4">
-            <div class="p-4 bg-slate-800/50 rounded-xl">
-              <p class="text-xs text-slate-500 mb-1">Proceso</p>
-              <p class="text-sm text-white font-bold">{{ selectedTask()!.workflowName }}</p>
-            </div>
-            <div class="p-4 bg-slate-800/50 rounded-xl">
-              <p class="text-xs text-slate-500 mb-1">Nodo Actual</p>
-              <p class="text-sm text-white font-bold">{{ selectedTask()!.nodeName }}</p>
-            </div>
-            <div class="p-4 bg-slate-800/50 rounded-xl">
-              <p class="text-xs text-slate-500 mb-1">Fecha Límite</p>
-              <p class="text-sm font-bold" [class.text-red-400]="selectedTask()!.overdue" [class.text-white]="!selectedTask()!.overdue">
-                {{ selectedTask()!.dueAt | date:'dd/MM/yyyy HH:mm' }}
-              </p>
-            </div>
-            <div class="p-4 bg-slate-800/50 rounded-xl">
-              <p class="text-xs text-slate-500 mb-1">Rol Asignado</p>
-              <p class="text-sm text-white font-bold">{{ selectedTask()!.assignedRole }}</p>
-            </div>
+        <!-- Description -->
+        <p class="detail-desc">{{ task.description }}</p>
+
+        <!-- Meta grid -->
+        <div class="detail-meta">
+          <div class="meta-card">
+            <span class="meta-label">Proceso</span>
+            <span class="meta-value">{{ task.workflowName }}</span>
           </div>
+          <div class="meta-card">
+            <span class="meta-label">Nodo Actual</span>
+            <span class="meta-value">{{ task.nodeName }}</span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Fecha Límite</span>
+            <span class="meta-value" [class.text-red]="task.overdue">
+              {{ task.dueAt | date:'dd/MM/yyyy HH:mm' }}
+            </span>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Rol</span>
+            <span class="meta-value">{{ task.assignedRole }}</span>
+          </div>
+        </div>
 
-          <!-- Attachments Section -->
-          @if (selectedTask()!.attachments && selectedTask()!.attachments!.length > 0) {
-            <div class="space-y-3">
-              <h4 class="text-sm font-black text-slate-500 uppercase tracking-wider">Documentos Adjuntos</h4>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                @for (file of selectedTask()!.attachments; track file.fileName) {
-                  <div class="flex items-center justify-between p-3 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:border-cyan-600/50 transition-all group">
-                    <div class="flex items-center gap-3 overflow-hidden">
-                      <div class="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-slate-900 rounded-lg text-xl">
-                        {{ file.fileType.includes('pdf') ? '📄' : '🖼️' }}
-                      </div>
-                      <div class="overflow-hidden">
-                        <p class="text-white text-sm font-bold truncate">{{ file.fileName }}</p>
-                        <p class="text-slate-500 text-[10px] uppercase font-black">{{ file.fileSize / 1024 | number:'1.0-0' }} KB · {{ file.fileType.split('/')[1] }}</p>
-                      </div>
-                    </div>
-                    <a [href]="file.fileUrl" target="_blank"
-                       class="ml-2 px-3 py-1.5 bg-slate-900 hover:bg-cyan-900/30 text-cyan-400 text-xs font-bold rounded-lg border border-slate-700 transition-all group-hover:border-cyan-700">
-                      VER
-                    </a>
+        <!-- Attachments -->
+        @if (task.attachments?.length) {
+          <div class="detail-section">
+            <h4 class="section-title">📎 Documentos Adjuntos</h4>
+            <div class="attachments-list">
+              @for (f of task.attachments; track f.fileName) {
+                <a class="attachment-item" [href]="f.fileUrl" target="_blank">
+                  <span class="att-icon">{{ f.fileType.includes('pdf') ? '📄' : '🖼️' }}</span>
+                  <div class="att-info">
+                    <span class="att-name">{{ f.fileName }}</span>
+                    <span class="att-size">{{ (f.fileSize / 1024) | number:'1.0-0' }} KB</span>
                   </div>
-                }
-              </div>
-            </div>
-          }
-
-          <!-- Action Section -->
-          @if (selectedTask()!.status === 'NEW' || selectedTask()!.status === 'IN_PROGRESS') {
-            <div class="p-6 bg-slate-800/30 border border-slate-700 rounded-2xl space-y-4">
-              <h4 class="font-bold text-white">Decisión</h4>
-
-              <div>
-                <label class="text-xs font-bold text-slate-500 uppercase block mb-2">Comentarios / Justificación</label>
-                <textarea [(ngModel)]="decisionComment" rows="4"
-                  placeholder="Escribe tus observaciones sobre esta tarea..."
-                  class="w-full bg-slate-950 border border-slate-700 focus:border-cyan-500 rounded-xl p-4 text-white outline-none resize-none transition-all"></textarea>
-              </div>
-
-              <div class="flex gap-3">
-                <!-- File Upload -->
-                <div class="flex-1">
-                  <input type="file" #fileInput class="hidden" (change)="onFileSelected($event)">
-                  <button (click)="fileInput.click()" [disabled]="processing()"
-                    class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 font-bold rounded-xl border border-slate-700 border-dashed transition-all">
-                    📎 SUBIR DOCUMENTO
-                  </button>
-                </div>
-              </div>
-
-              <div class="flex gap-3">
-                <button (click)="decide('REJECT')" [disabled]="processing()"
-                  class="flex-1 py-3.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white font-black rounded-xl transition-all active:scale-95">
-                  ✕ RECHAZAR
-                </button>
-                <button (click)="decide('APPROVE')" [disabled]="processing()"
-                  class="flex-1 py-3.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white font-black rounded-xl transition-all shadow-lg shadow-cyan-900/30 active:scale-95">
-                  {{ processing() ? '⏳ Procesando...' : '✓ APROBAR' }}
-                </button>
-              </div>
-            </div>
-          } @else {
-            <div class="p-8 text-center border-2 border-dashed border-slate-800 rounded-2xl">
-              <p class="text-3xl mb-3">{{ selectedTask()!.status === 'COMPLETED' ? '✅' : '❌' }}</p>
-              <p class="font-bold text-lg" [class.text-emerald-400]="selectedTask()!.status === 'COMPLETED'" [class.text-red-400]="selectedTask()!.status !== 'COMPLETED'">
-                Tarea {{ translateStatus(selectedTask()!.status) }}
-              </p>
-              @if (selectedTask()!.comment) {
-                <p class="text-slate-400 text-sm mt-2 italic">"{{ selectedTask()!.comment }}"</p>
+                  <span class="att-view">VER →</span>
+                </a>
               }
             </div>
-          }
-        </div>
+          </div>
+        }
+
+        <!-- Action panel -->
+        @if (task.status === 'NEW' || task.status === 'IN_PROGRESS') {
+          <div class="action-panel">
+            <h4 class="section-title">⚡ Acción Requerida</h4>
+
+            <label class="comment-label">Comentario / Justificación</label>
+            <textarea #commentBox [(ngModel)]="decisionComment" rows="3"
+              placeholder="Escribe tu observación o di: &quot;comentar [texto]&quot;"
+              class="comment-box"></textarea>
+
+            <!-- File upload -->
+            <input type="file" #fileInput class="hidden" (change)="onFileSelected($event)">
+            <button class="upload-btn" (click)="fileInput.click()" [disabled]="processing()">
+              📎 Adjuntar Documento
+            </button>
+
+            <!-- Decisions - big buttons -->
+            <div class="decision-btns">
+              <button class="decision-btn decision-btn--reject" (click)="decide('REJECT')" [disabled]="processing()">
+                <span class="db-icon">✕</span>
+                <span class="db-label">RECHAZAR</span>
+                <span class="db-voice">Di "rechazar"</span>
+              </button>
+              <button class="decision-btn decision-btn--approve" (click)="decide('APPROVE')" [disabled]="processing()">
+                <span class="db-icon">{{ processing() ? '⏳' : '✓' }}</span>
+                <span class="db-label">{{ processing() ? 'Procesando…' : 'APROBAR' }}</span>
+                <span class="db-voice">Di "aprobar"</span>
+              </button>
+            </div>
+          </div>
+
+        } @else {
+          <div class="task-closed">
+            <span class="closed-icon">{{ task.status === 'COMPLETED' ? '✅' : '❌' }}</span>
+            <p class="closed-label" [class.text-green]="task.status === 'COMPLETED'"
+               [class.text-red]="task.status !== 'COMPLETED'">
+              Tarea {{ translateStatus(task.status) }}
+            </p>
+            @if (task.comment) { <p class="closed-comment">"{{ task.comment }}"</p> }
+          </div>
+        }
+
       } @else {
-        <div class="flex-1 flex flex-col items-center justify-center text-center p-12">
-          <div class="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center text-4xl mb-6">✍️</div>
-          <h3 class="text-xl font-bold text-white">Espacio de Trabajo</h3>
-          <p class="text-slate-500 mt-2 max-w-xs">Selecciona una tarea para ver sus detalles y tomar una decisión</p>
+        <!-- Empty state -->
+        <div class="detail-empty">
+          <div class="de-icon">✍️</div>
+          <h3>Espacio de Trabajo</h3>
+          <p>Selecciona una tarea de la lista o di<br><strong>"tarea 1"</strong> para abrirla con voz</p>
+
+          <!-- Voice cheatsheet when no task selected -->
+          <div class="cheatsheet">
+            <h4>🎤 Comandos de Voz</h4>
+            <ul>
+              <li><b>"Mostrar nuevas"</b> — Filtrar nuevas</li>
+              <li><b>"Tarea 1"</b> — Seleccionar tarea #1</li>
+              <li><b>"Aprobar"</b> — Aprobar tarea actual</li>
+              <li><b>"Rechazar"</b> — Rechazar tarea actual</li>
+              <li><b>"Comentar [texto]"</b> — Agregar comentario</li>
+              <li><b>"Recargar"</b> — Actualizar bandeja</li>
+            </ul>
+          </div>
         </div>
       }
-    </div>
+    </section>
   </div>
 </div>

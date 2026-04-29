@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/push_notification_service.dart';
 import 'providers/auth_provider.dart';
+import 'providers/notification_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/process_tracker_screen.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +24,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: const MyApp(),
     ),
@@ -40,6 +44,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const RootScreen(),
+      navigatorKey: navigatorKey,
     );
   }
 }

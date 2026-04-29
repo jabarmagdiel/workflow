@@ -1,8 +1,9 @@
-import { Component, inject, signal, OnInit, OnDestroy, NgZone, computed } from '@angular/core';
+import { Component, inject, signal, OnInit, OnDestroy, NgZone, computed, ElementRef, ViewChild } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NotificationService } from '../../core/services/notification.service';
+import { VoiceService } from '../../core/services/voice.service';
 import { Subscription } from 'rxjs';
 
 interface Attachment {
@@ -45,55 +46,61 @@ interface Task {
   styleUrl: './my-tasks.component.css'
 })
 export class MyTasksComponent implements OnInit, OnDestroy {
-  private http = inject(HttpClient);
-  private zone = inject(NgZone);
+  private http         = inject(HttpClient);
+  private zone         = inject(NgZone);
   private notifService = inject(NotificationService);
+  public  voiceService = inject(VoiceService);
 
-  tasks        = signal<Task[]>([]);
-  activeFilter = signal<string>('NEW');
-  selectedTask = signal<Task | null>(null);
-  processing   = signal(false);
+  @ViewChild('commentBox') commentBox?: ElementRef<HTMLTextAreaElement>;
+
+  tasks          = signal<Task[]>([]);
+  activeFilter   = signal<string>('NEW');
+  selectedTask   = signal<Task | null>(null);
+  processing     = signal(false);
   decisionComment = '';
-  private eventSubscription?: Subscription;
+  voiceFeedback  = signal<string | null>(null);
 
-  /* ── Voice ─────────────────────────────────────────── */
-  voiceListening = signal(false);
-  voiceText      = signal('');
-  private recognition: any = null;
+  private subs: Subscription[] = [];
 
-  tabs = [
-    { label: 'Nuevas',     key: 'NEW'        },
-    { label: 'En Curso',   key: 'IN_PROGRESS'},
-    { label: 'Completadas',key: 'COMPLETED'  },
-    { label: 'Rechazadas', key: 'REJECTED'   }
+  // ── Shortcuts
+  readonly COMMANDS = [
+    { keys: ['Alt+V'], label: 'Activar/Desactivar voz' },
+    { keys: ['"Aprobar"'], label: 'Aprobar tarea seleccionada' },
+    { keys: ['"Rechazar"'], label: 'Rechazar tarea seleccionada' },
+    { keys: ['"Tarea 1"'], label: 'Seleccionar tarea N' },
+    { keys: ['"Mostrar nuevas"'], label: 'Filtrar nuevas' },
+    { keys: ['"En curso"'], label: 'Filtrar en curso' },
+    { keys: ['"Completadas"'], label: 'Filtrar completadas' },
+    { keys: ['"Recargar"'], label: 'Actualizar bandeja' },
+    { keys: ['"Comentar ..."'], label: 'Agregar comentario' },
   ];
 
-  filteredTasks = computed(() => this.tasks().filter((t: Task) => t.status === this.activeFilter()));
+  tabs = [
+    { label: 'Nuevas',      key: 'NEW',         icon: '🔴' },
+    { label: 'En Curso',    key: 'IN_PROGRESS',  icon: '🟡' },
+    { label: 'Completadas', key: 'COMPLETED',    icon: '🟢' },
+    { label: 'Rechazadas',  key: 'REJECTED',     icon: '⚫' },
+  ];
 
-  tasksByStatus(status: string): Task[] {
-    return this.tasks().filter((t: Task) => t.status === status);
+  filteredTasks = computed(() => this.tasks().filter(t => t.status === this.activeFilter()));
+  tasksByStatus = (s: string) => this.tasks().filter(t => t.status === s);
+
+  ngOnInit() {
+    this.loadTasks();
+    this.subs.push(
+      this.notifService.events$.subscribe(ev => {
+        if (['TASK_COMPLETED','TASK_REASSIGNED','INSTANCE_STARTED'].includes(ev.event)) this.loadTasks();
+      }),
+      this.voiceService.commandBus$.subscribe(cmd => this.zone.run(() => this.handleCommand(cmd)))
+    );
   }
 
-  ngOnInit() { 
-    this.loadTasks(); 
-    
-    // Auto refresh on events
-    this.eventSubscription = this.notifService.events$.subscribe(event => {
-      if (['TASK_COMPLETED', 'TASK_REASSIGNED', 'INSTANCE_STARTED'].includes(event.event)) {
-         this.loadTasks();
-      }
-    });
-  }
-
-  ngOnDestroy() { 
-    this.stopVoice(); 
-    this.eventSubscription?.unsubscribe();
-  }
+  ngOnDestroy() { this.subs.forEach(s => s.unsubscribe()); }
 
   loadTasks() {
     this.http.get<Task[]>('/api/tasks/my').subscribe({
-      next:  (data: Task[]) => this.tasks.set(data),
-      error: ()             => this.tasks.set([])
+      next:  d => this.tasks.set(d),
+      error: () => this.tasks.set([])
     });
   }
 
@@ -102,9 +109,9 @@ export class MyTasksComponent implements OnInit, OnDestroy {
     this.decisionComment = task.comment || '';
     if (task.status === 'NEW') {
       this.http.post<Task>(`/api/tasks/${task.id}/start`, {}).subscribe({
-        next: (updated: Task) => {
-          this.tasks.update((list: Task[]) => list.map((t: Task) => t.id === updated.id ? updated : t));
-          this.selectedTask.set(updated);
+        next: u => {
+          this.tasks.update(l => l.map(t => t.id === u.id ? u : t));
+          this.selectedTask.set(u);
         }
       });
     }
@@ -115,11 +122,9 @@ export class MyTasksComponent implements OnInit, OnDestroy {
     if (!task) return;
     this.processing.set(true);
     this.http.post<object>(`/api/tasks/${task.id}/complete`, {
-      action,
-      comment: this.decisionComment,
-      formData: {}
+      action, comment: this.decisionComment, formData: {}
     }).subscribe({
-      next:  () => {
+      next: () => {
         this.processing.set(false);
         this.loadTasks();
         this.selectedTask.set(null);
@@ -133,118 +138,66 @@ export class MyTasksComponent implements OnInit, OnDestroy {
     const file: File = event.target.files[0];
     const task = this.selectedTask();
     if (!file || !task) return;
-
     this.processing.set(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    this.http.post<Task>(`/api/tasks/${task.id}/attachments`, formData).subscribe({
-      next: (updated) => {
-        this.processing.set(false);
-        this.selectedTask.set(updated);
-        this.tasks.update(list => list.map(t => t.id === updated.id ? updated : t));
-        alert('Archivo subido con éxito');
-      },
-      error: (err) => {
-        this.processing.set(false);
-        alert('Error al subir archivo: ' + (err.error?.message || err.message));
-      }
+    const fd = new FormData();
+    fd.append('file', file);
+    this.http.post<Task>(`/api/tasks/${task.id}/attachments`, fd).subscribe({
+      next:  u  => { this.processing.set(false); this.selectedTask.set(u); this.tasks.update(l => l.map(t => t.id === u.id ? u : t)); },
+      error: () => this.processing.set(false)
     });
   }
 
-  translateStatus(s: string): string {
-    const map: Record<string, string> = {
-      NEW: 'Nueva',
-      IN_PROGRESS: 'En Curso',
-      COMPLETED: 'Completada',
-      REJECTED: 'Rechazada',
-      CANCELLED: 'Cancelada',
-      DELEGATED: 'Delegada'
-    };
-    return map[s] || s;
-  }
-
-  translatePriority(p: string): string {
-    const map: Record<string, string> = {
-      LOW: 'Baja',
-      NORMAL: 'Normal',
-      HIGH: 'Alta',
-      CRITICAL: 'Crítica'
-    };
-    return map[p] || p;
-  }
-
-  priorityClass(p: string): string {
-    const map: Record<string, string> = {
-      CRITICAL: 'bg-red-950 text-red-400 border border-red-900',
-      HIGH:     'bg-orange-950 text-orange-400 border border-orange-900',
-      NORMAL:   'bg-blue-950 text-blue-400 border border-blue-900',
-      LOW:      'bg-slate-800 text-slate-400'
-    };
-    return map[p] ?? map['LOW'];
-  }
-
-  /* ── Voice commands ──────────────────────────────────── */
-  toggleVoice() {
-    this.voiceListening() ? this.stopVoice() : this.startVoice();
-  }
-
-  startVoice() {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { alert('Tu navegador no soporta reconocimiento de voz.'); return; }
-    this.recognition = new SR();
-    this.recognition.lang = 'es-ES';
-    this.recognition.continuous = true;
-    this.recognition.interimResults = true;
-    this.recognition.onresult = (ev: any) => {
-      const transcript = Array.from(ev.results as any[])
-        .map((r: any) => r[0].transcript).join('');
-      this.zone.run(() => {
-        this.voiceText.set(transcript);
-        if (ev.results[ev.results.length - 1].isFinal) {
-          this.processVoiceCommand(transcript.toLowerCase().trim());
-          this.voiceText.set('');
-        }
-      });
-    };
-    this.recognition.onerror = () => this.zone.run(() => this.stopVoice());
-    this.recognition.onend   = () => this.zone.run(() => this.voiceListening.set(false));
-    this.recognition.start();
-    this.voiceListening.set(true);
-  }
-
-  stopVoice() {
-    this.recognition?.stop();
-    this.recognition = null;
-    this.voiceListening.set(false);
-    this.voiceText.set('');
-  }
-
-  private processVoiceCommand(text: string) {
-    // "aprobar" → decide APPROVE
-    if (/aprobar/.test(text) && this.selectedTask()) {
-      this.decide('APPROVE');
-      return;
+  // ── Voice ────────────────────────────────────────────────
+  private handleCommand(cmd: any) {
+    switch (cmd.intent) {
+      case 'APPROVE':
+        if (this.selectedTask()) { this.showFeedback('✅ Aprobando tarea...'); this.decide('APPROVE'); }
+        else this.showFeedback('⚠️ Primero selecciona una tarea');
+        break;
+      case 'REJECT':
+        if (this.selectedTask()) { this.showFeedback('❌ Rechazando tarea...'); this.decide('REJECT'); }
+        else this.showFeedback('⚠️ Primero selecciona una tarea');
+        break;
+      case 'RELOAD':
+        this.showFeedback('🔄 Actualizando bandeja...');
+        this.loadTasks();
+        break;
+      case 'FILTER_TASKS':
+        this.activeFilter.set(cmd.entities.filter);
+        const label = this.tabs.find(t => t.key === cmd.entities.filter)?.label ?? cmd.entities.filter;
+        this.showFeedback(`🔍 Mostrando: ${label}`);
+        break;
+      case 'SELECT_TASK': {
+        const idx = cmd.entities.index ?? 0;
+        const t = this.filteredTasks()[idx];
+        if (t) { this.selectTask(t); this.showFeedback(`📋 Tarea "${t.title}" abierta`); }
+        else this.showFeedback(`⚠️ No hay tarea #${idx + 1} en esta vista`);
+        break;
+      }
+      case 'SET_COMMENT':
+        this.decisionComment = cmd.entities.text;
+        this.showFeedback(`💬 Comentario: "${cmd.entities.text}"`);
+        setTimeout(() => this.commentBox?.nativeElement?.focus(), 100);
+        break;
     }
-    // "rechazar" → decide REJECT
-    if (/rechazar/.test(text) && this.selectedTask()) {
-      this.decide('REJECT');
-      return;
-    }
-    // "seleccionar tarea [n]" → select nth task
-    const selMatch = text.match(/(?:seleccionar|abrir)\s+tarea\s+(?:número\s+)?(\d+)/);
-    if (selMatch) {
-      const idx = parseInt(selMatch[1], 10) - 1;
-      const t = this.filteredTasks()[idx];
-      if (t) this.selectTask(t);
-      return;
-    }
-    // "mostrar nuevas | completadas | rechazadas | en curso"
-    if (/nuevas?/.test(text))      { this.activeFilter.set('NEW');         return; }
-    if (/en\s+curso/.test(text))   { this.activeFilter.set('IN_PROGRESS'); return; }
-    if (/completadas?/.test(text)) { this.activeFilter.set('COMPLETED');   return; }
-    if (/rechazadas?/.test(text))  { this.activeFilter.set('REJECTED');    return; }
-    // "recargar" → reload
-    if (/recargar/.test(text)) { this.loadTasks(); return; }
+  }
+
+  private showFeedback(msg: string) {
+    this.voiceFeedback.set(msg);
+    setTimeout(() => this.voiceFeedback.set(null), 3000);
+  }
+
+  // ── Helpers ──────────────────────────────────────────────
+  translateStatus(s: string) {
+    return ({ NEW:'Nueva', IN_PROGRESS:'En Curso', COMPLETED:'Completada', REJECTED:'Rechazada', CANCELLED:'Cancelada', DELEGATED:'Delegada' } as any)[s] ?? s;
+  }
+  translatePriority(p: string) {
+    return ({ LOW:'Baja', NORMAL:'Normal', HIGH:'Alta', CRITICAL:'Crítica' } as any)[p] ?? p;
+  }
+  priorityClass(p: string) {
+    return ({ CRITICAL:'priority-critical', HIGH:'priority-high', NORMAL:'priority-normal', LOW:'priority-low' } as any)[p] ?? 'priority-low';
+  }
+  priorityIcon(p: string) {
+    return ({ CRITICAL:'🔴', HIGH:'🟠', NORMAL:'🔵', LOW:'⚪' } as any)[p] ?? '⚪';
   }
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/notification_provider.dart';
 import '../services/api_service.dart';
 import 'package:intl/intl.dart';
 import '../services/push_notification_service.dart';
 import 'process_detail_screen.dart';
+import 'notification_screen.dart';
 
 class ProcessTrackerScreen extends StatefulWidget {
   const ProcessTrackerScreen({super.key});
@@ -22,6 +24,9 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
   void initState() {
     super.initState();
     _fetchInstances();
+    
+    // Initialize Push Notifications interactions
+    PushNotificationService().setupInteractions();
   }
 
   Future<void> _fetchInstances() async {
@@ -56,13 +61,38 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_active_outlined, color: Colors.amberAccent),
-            tooltip: "Probar Notificación",
-            onPressed: () {
-              PushNotificationService.showLocalNotification(
-                title: "BPFlow: Prueba de Sonido",
-                body: "¡Las notificaciones están funcionando correctamente! 🚀"
+          Consumer<NotificationProvider>(
+            builder: (context, notifications, _) {
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_active_outlined, color: Colors.amberAccent),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                      );
+                    },
+                  ),
+                  if (notifications.unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Text(
+                          '${notifications.unreadCount}',
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
               );
             },
           ),
@@ -77,6 +107,18 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
             },
           )
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        mini: true,
+        backgroundColor: Colors.indigoAccent,
+        tooltip: "Simular Notificación",
+        onPressed: () {
+          PushNotificationService.showLocalNotification(
+            title: "Nuevo Avance en Trámite",
+            body: "Tu trámite #${1000 + _instances.length} ha avanzado al siguiente departamento. 📄✨"
+          );
+        },
+        child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
       ),
       body: RefreshIndicator(
         onRefresh: _fetchInstances,
@@ -106,8 +148,6 @@ class _ProcessTrackerScreenState extends State<ProcessTrackerScreen> {
                     final instance = _instances[index];
                     final history = instance['history'] as List<dynamic>? ?? [];
                     final lastStep = history.isNotEmpty ? history.last : null;
-                    
-                    // Priorizar el nombre del nodo actual del backend
                     final department = instance['currentNodeName'] ?? (lastStep != null ? lastStep['nodeName'] : "Iniciando...");
                     
                     return InkWell(

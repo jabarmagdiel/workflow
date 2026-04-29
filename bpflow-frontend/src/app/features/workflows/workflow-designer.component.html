@@ -373,21 +373,38 @@
         </div>
       </div>
 
-      <!-- ──── VOICE OVERLAY ──── -->
+      <!-- ──── VOICE OVERLAY — premium full-screen ──── -->
       @if (voiceListening()) {
         <div class="voice-overlay" (click)="stopVoice()">
-          <div class="voice-ring"></div>
-          <div class="voice-content">
-            <span class="voice-icon">🎤</span>
-            <p class="voice-hint">Di un comando…</p>
+          <div class="voice-rings">
+            <div class="vr vr1"></div>
+            <div class="vr vr2"></div>
+            <div class="vr vr3"></div>
+          </div>
+          <div class="voice-core">
+            <div class="voice-mic-icon">🎤</div>
+            <p class="voice-status-txt">Escuchando…</p>
             @if (voiceText()) {
-              <p class="voice-transcript">{{ voiceText() }}</p>
+              <div class="voice-live-text">
+                <span class="vdot">◉</span> {{ voiceText() }}
+              </div>
             }
-            <p class="voice-examples">
-              "Agregar tarea Revisión" · "Agregar inicio" · "Publicar" · "Ajustar vista"
-            </p>
+            <div class="voice-chip-grid">
+              @for (cmd of VOICE_COMMANDS; track cmd.say) {
+                <div class="vc">
+                  <span class="vc-key">{{ cmd.say }}</span>
+                  <span class="vc-desc">{{ cmd.desc }}</span>
+                </div>
+              }
+            </div>
+            <p class="voice-close-hint">Haz clic para cerrar</p>
           </div>
         </div>
+      }
+
+      <!-- ──── VOICE FEEDBACK TOAST ──── -->
+      @if (voiceFeedback()) {
+        <div class="voice-feedback-toast">{{ voiceFeedback() }}</div>
       }
 
       <!-- ──── NODE EDIT PANEL ──── -->

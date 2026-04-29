@@ -2,6 +2,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:provider/provider.dart';
+import '../main.dart';
+import '../providers/notification_provider.dart';
 import 'api_service.dart';
 
 class PushNotificationService {
@@ -10,12 +13,8 @@ class PushNotificationService {
   final ApiService _apiService = ApiService();
 
   static Future<void> initialize() async {
+    // 1. Initialize local notifications (always do this first so it works without Firebase)
     try {
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
-      }
-
-      // Initialize local notifications
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
       
@@ -23,16 +22,42 @@ class PushNotificationService {
         android: initializationSettingsAndroid,
       );
 
-      // Using dynamic as a temporary measure to bypass the strict type check 
-      // which seems to be misidentifying the plugin methods in this environment
-      await (_localNotifications as dynamic).initialize(
-        initializationSettings,
+      await _localNotifications.initialize(
+        settings: initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
           debugPrint("Notification tapped: ${response.payload}");
         },
       );
 
-      // Notification permissions for Firebase
+      const AndroidNotificationChannel channel = AndroidNotificationChannel(
+        'high_importance_channel_v2',
+        'High Importance Notifications',
+        description: 'This channel is used for important notifications.',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+          
+      // Request permission for Android 13+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+          
+      debugPrint('✅ Local Notifications inicializadas');
+    } catch (e) {
+      debugPrint('⚠️ Error inicializando Local Notifications: $e');
+    }
+
+    // 2. Initialize Firebase (might fail if config is missing)
+    try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
+
       NotificationSettings settings = await _firebaseMessaging.requestPermission(
         alert: true,
         badge: true,
@@ -40,11 +65,10 @@ class PushNotificationService {
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        debugPrint('✅ Permisos de notificaciones concedidos');
+        debugPrint('✅ Permisos de Firebase concedidos');
       }
     } catch (e) {
-      debugPrint('⚠️ Error inicializando Push Notifications: $e');
-      // No rethrow here to prevent app crash if notifications fail
+      debugPrint('⚠️ Firebase no configurado: $e');
     }
   }
 
@@ -74,26 +98,32 @@ class PushNotificationService {
 
   static Future<void> showLocalNotification({required String title, required String body}) async {
     try {
+      // Add to internal notification list
+      if (navigatorKey.currentContext != null) {
+        Provider.of<NotificationProvider>(navigatorKey.currentContext!, listen: false)
+            .addNotification(title, body);
+      }
+
       const AndroidNotificationDetails androidPlatformChannelSpecifics =
           AndroidNotificationDetails(
-        'bpflow_channel_id',
-        'BPFlow Notifications',
-        channelDescription: 'Canal principal de notificaciones de BPFlow',
+        'high_importance_channel_v2',
+        'High Importance Notifications',
+        channelDescription: 'This channel is used for important notifications.',
         importance: Importance.max,
         priority: Priority.high,
-        showWhen: true,
-        enableVibration: true,
         playSound: true,
+        enableVibration: true,
+        showWhen: true,
       );
       
       const NotificationDetails platformChannelSpecifics =
           NotificationDetails(android: androidPlatformChannelSpecifics);
       
-      await (_localNotifications as dynamic).show(
-        DateTime.now().millisecond % 100000,
-        title,
-        body,
-        platformChannelSpecifics,
+      await _localNotifications.show(
+        id: DateTime.now().millisecond % 100000,
+        title: title,
+        body: body,
+        notificationDetails: platformChannelSpecifics,
       );
     } catch (e) {
       debugPrint('⚠️ Error mostrando notificación local: $e');

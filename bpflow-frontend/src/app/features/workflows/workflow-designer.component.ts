@@ -103,6 +103,20 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
   /* ── Voice (ahora vinculados al servicio) ──────────────── */
   voiceListening = this.voiceService.isListening;
   voiceText      = this.voiceService.lastTranscript;
+  voiceFeedback  = signal<string | null>(null);
+
+  readonly VOICE_COMMANDS = [
+    { say: '"Agregar tarea [nombre]"', desc: 'Añade nodo Tarea al canvas' },
+    { say: '"Agregar decisión"',       desc: 'Añade nodo Decisión' },
+    { say: '"Agregar inicio"',         desc: 'Añade nodo Inicio' },
+    { say: '"Agregar fin"',            desc: 'Añade nodo Fin' },
+    { say: '"Eliminar"',               desc: 'Borra el nodo seleccionado' },
+    { say: '"Conectar"',               desc: 'Activa modo conexión' },
+    { say: '"Publicar"',               desc: 'Publica el proceso actual' },
+    { say: '"Acercar" / "Alejar"',     desc: 'Controla el zoom' },
+    { say: '"Ajustar vista"',          desc: 'Encuadra el diagrama' },
+    { say: '"Nuevo proceso"',          desc: 'Crea un proceso nuevo' },
+  ];
 
   /* ── Modal flags ──────────────────────────────────── */
   showCreateModal  = signal(false);
@@ -129,54 +143,67 @@ export class WorkflowDesignerComponent implements OnInit, OnDestroy {
     { type: 'SUBPROCESS',       label: 'Sub-Proceso',  icon: 'sub'      },
   ];
 
-  ngOnInit() { 
-    this.loadWorkflows(); 
+  ngOnInit() {
+    this.loadWorkflows();
     this.loadUsers();
     this.voiceSub = this.voiceService.commandBus$.subscribe(command => {
       this.zone.run(() => this.handleAICommand(command));
     });
   }
 
-  ngOnDestroy() { 
+  ngOnDestroy() {
     this.voiceSub?.unsubscribe();
-    this.voiceService.stopListening(); 
+    this.voiceService.stopListening();
   }
 
   /* ─── Voice Handling ────────────────────────────────── */
   toggleVoice() {
     this.voiceListening() ? this.voiceService.stopListening() : this.voiceService.startListening();
   }
-
-  stopVoice() {
-    this.voiceService.stopListening();
-  }
+  stopVoice() { this.voiceService.stopListening(); }
 
   private handleAICommand(command: VoiceCommand) {
-    const wf = this.selectedWf();
-    if (!wf || wf.status !== 'DRAFT') return;
-
-    console.log('💎 Designer executing AI command:', command.intent);
-
+    console.log('💎 Designer voice command:', command.intent);
     switch (command.intent) {
       case 'CREATE_NODE': {
+        const wf = this.selectedWf();
+        if (!wf || wf.status !== 'DRAFT') { this.showVoiceFeedback('⚠️ Selecciona un proceso en Borrador'); return; }
         const label = this.capitalize(command.entities?.node_name || 'Nueva Tarea');
+        const type  = (command.entities?.node_type || 'TASK') as WorkflowNode['type'];
         const xs = wf.nodes.map(n => n.x);
-        const x = xs.length ? Math.max(...xs) + 220 : 300;
-        const y = wf.nodes[Math.floor(wf.nodes.length / 2)]?.y ?? 300;
-        this.dropNodeAt({ type: 'TASK', label, icon: 'task' }, x, y);
+        const x  = xs.length ? Math.max(...xs) + 220 : 300;
+        const y  = wf.nodes[Math.floor(wf.nodes.length / 2)]?.y ?? 300;
+        this.dropNodeAt({ type, label, icon: 'task' }, x, y);
+        this.showVoiceFeedback(`🟦 Nodo "${label}" añadido`);
         break;
       }
       case 'DELETE_ELEMENT': {
-        // Implementación simple: si hay un nodo seleccionado, lo borra
-        const selected = this.selectedNode();
-        if (selected) this.deleteNode(wf.id, selected.id);
+        const sel = this.selectedNode();
+        const wf2 = this.selectedWf();
+        if (sel && wf2) { this.deleteNode(wf2.id, sel.id); this.showVoiceFeedback('🗑️ Nodo eliminado'); }
+        else this.showVoiceFeedback('⚠️ Selecciona un nodo primero');
         break;
       }
-      case 'CONNECT_NODES': {
-        // Implementar lógica de conexión por nombre si fuera necesario
+      case 'CONNECT_NODES':
+        this.toggleEdgeDrawing();
+        this.showVoiceFeedback('↗️ Modo conexión activado');
+        break;
+      case 'PUBLISH': {
+        const wf3 = this.selectedWf();
+        if (wf3 && wf3.status === 'DRAFT') { this.publishWorkflow(wf3.id); this.showVoiceFeedback('🚀 Publicando...'); }
+        else this.showVoiceFeedback('⚠️ No hay proceso en borrador');
         break;
       }
+      case 'ZOOM_IN':      this.zoomIn();        this.showVoiceFeedback('🔍 Acercando');      break;
+      case 'ZOOM_OUT':     this.zoomOut();       this.showVoiceFeedback('🔭 Alejando');       break;
+      case 'FIT_VIEW':     this.fitView();        this.showVoiceFeedback('⊡ Vista ajustada'); break;
+      case 'NEW_WORKFLOW': this.openCreateModal(); this.showVoiceFeedback('📐 Nuevo proceso...'); break;
     }
+  }
+
+  private showVoiceFeedback(msg: string) {
+    this.voiceFeedback.set(msg);
+    setTimeout(() => this.voiceFeedback.set(null), 3200);
   }
 
   private capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
